@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-CONFIG_PATH=/data/options.json
+ADT_PULSE_MQTT_CONFIG_PATH=/data/options.json
 
 # start server
 npm start

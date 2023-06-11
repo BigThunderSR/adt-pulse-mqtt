@@ -10,11 +10,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/BigThunderSR/adt-pulse-mqtt"
+    "url": "https://github.com/robross0606/adt-pulse-mqtt"
   },
   "license": "ISC",
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.1.4",
     "glob-parent": "^6.0.2",
     "lodash": "^4.17.21",
     "mqtt": "^4.3.7",

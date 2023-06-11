@@ -59,3 +59,7 @@ typings/
 
 # Sensitive Information
 .coveralls.yml
+
+# Local config
+.env
+local/

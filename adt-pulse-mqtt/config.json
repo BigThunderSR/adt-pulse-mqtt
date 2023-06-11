@@ -1,62 +1,56 @@
 {
-  "name": "ADT Pulse MQTT - BigThunderSR",
-  "version": "3.1.2",
-  "slug": "adtpulsemqtt-bigthundersr",
+  "name": "ADT Pulse MQTT - Smartthings Edge Fork",
+  "version": "4.0.0",
+  "slug": "adtpulsemqtt-robross0606",
   "description": "ADT Pulse Bridge using MQTT",
-  "codenotary": "bigthundersr@outlook.com",
-  "url":"https://github.com/BigThunderSR/adt-pulse-mqtt",
+  "codenotary": "robross0606@gmail.com",
+  "url": "https://github.com/robross0606/adt-pulse-mqtt",
   "startup": "application",
   "boot": "auto",
-  "host_network" : false,
-  "arch": [
-    "armhf",
-    "amd64"
-  ],
-  "map": [
-    "share:rw",
-    "ssl"
-  ],
-  "image": "bigthundersr/adt-pulse-mqtt-{arch}",
+  "host_network": false,
+  "arch": ["armhf", "amd64"],
+  "map": ["share:rw", "ssl"],
+  "image": "robross0606/adt-pulse-mqtt-{arch}",
   "options": {
-      "ssl": false,
-      "certfile": "fullchain.pem",
-      "keyfile": "privkey.pem",
-      "pulse_login" : {
-        "username": "",
-        "password": "",
-        "fingerprint": ""
-      },
-      "mqtt_host" : "core-mosquitto",
-	  "mqtt_url" : "",
-	  "mqtt_connect_options" :  {
-        "username" : "",
-        "password" : ""
-      },
-      "alarm_state_topic": "home/alarm/state",
-      "alarm_command_topic": "home/alarm/cmd",
-      "zone_state_topic": "adt/zone",
-      "smartthings_topic": "smartthings",
-      "smartthings": false
+    "ssl": false,
+    "certfile": "fullchain.pem",
+    "keyfile": "privkey.pem",
+    "pulse_login": {
+      "username": "",
+      "password": "",
+      "fingerprint": ""
     },
-    "schema": {
-      "ssl": "bool",
-      "certfile": "str",
-      "keyfile": "str",
-      "pulse_login" : {
-        "username": "str",
-        "password": "str",
-        "fingerprint": "str"
-      },
-       "mqtt_host" : "str",
-	     "mqtt_url" : "str?",
-       "mqtt_connect_options" : {
-         "username" : "str",
-         "password" : "str"
-      },
-      "alarm_state_topic" : "str",
-      "alarm_command_topic": "str",
-      "zone_state_topic": "str",
-      "smartthings_topic": "str",
-      "smartthings": "bool"
-    }
+    "pulse_interval_ms": 5000,
+    "mqtt_host": "core-mosquitto",
+    "mqtt_url": "",
+    "mqtt_connect_options": {
+      "username": "",
+      "password": ""
+    },
+    "alarm_state_topic": "home/alarm/state",
+    "alarm_command_topic": "home/alarm/config",
+    "zone_state_topic": "adt/zone",
+    "smartthings": false
+  },
+  "schema": {
+    "ssl": "bool",
+    "certfile": "str",
+    "keyfile": "str",
+    "pulse_login": {
+      "username": "str",
+      "password": "str",
+      "fingerprint": "str"
+    },
+    "pulse_interval_ms": "int",
+    "mqtt_host": "str",
+    "mqtt_url": "str?",
+    "mqtt_connect_options": {
+      "username": "str",
+      "password": "str"
+    },
+    "alarm_state_topic": "str",
+    "alarm_command_topic": "str",
+    "zone_state_topic": "str",
+    "smartthings": "bool"
+  }
 }

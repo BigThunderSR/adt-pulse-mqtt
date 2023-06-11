@@ -1,9 +1,9 @@
 ---
-name: ADT Pulse MQTT - BigThunderSR
+name: ADT Pulse MQTT - robross0606
 version: 3.1.2
-slug: adtpulsemqtt-bigthundersr
+slug: adtpulsemqtt-robross0606
 description: ADT Pulse Bridge using MQTT
-url: https://github.com/BigThunderSR/adt-pulse-mqtt
+url: https://github.com/robross0606/adt-pulse-mqtt
 startup: application
 boot: auto
 host_network: false
@@ -13,7 +13,7 @@ arch:
 map:
   - share:rw
   - ssl
-image: 'ghcr.io/bigthundersr/adt-pulse-mqtt-{arch}'
+image: 'ghcr.io/robross0606/adt-pulse-mqtt-{arch}'
 options:
   ssl: false
   certfile: fullchain.pem
@@ -30,7 +30,6 @@ options:
   alarm_state_topic: home/alarm/state
   alarm_command_topic: home/alarm/cmd
   zone_state_topic: adt/zone
-  smartthings_topic: smartthings
   smartthings: false
 schema:
   ssl: bool
@@ -48,5 +47,4 @@ schema:
   alarm_state_topic: str
   alarm_command_topic: str
   zone_state_topic: str
-  smartthings_topic: str
   smartthings: bool

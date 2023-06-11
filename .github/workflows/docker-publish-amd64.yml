@@ -45,42 +45,42 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-#      - name: Docker meta
-#        id: docker_meta
-#        uses: crazy-max/ghaction-docker-meta@v4
-#        with:
-          # list of Docker images to use as base name for tags
-#          images: |
-#            bigthundersr/adt-pulse-mqtt
-#            bigthundersr/adt-pulse-mqtt-amd64
-          # add git short SHA as Docker tag
-          #tag-sha: true
-          #tag-semver: |
-          #  {{version}}
-#          flavor: |
-#            latest=true
-#          tags: |
-#            type=semver,pattern={{version}}
+      #      - name: Docker meta
+      #        id: docker_meta
+      #        uses: crazy-max/ghaction-docker-meta@v4
+      #        with:
+      # list of Docker images to use as base name for tags
+      #          images: |
+      #            robross0606/adt-pulse-mqtt
+      #            robross0606/adt-pulse-mqtt-amd64
+      # add git short SHA as Docker tag
+      #tag-sha: true
+      #tag-semver: |
+      #  {{version}}
+      #          flavor: |
+      #            latest=true
+      #          tags: |
+      #            type=semver,pattern={{version}}
 
       - name: Docker meta
         id: docker_meta
         uses: docker/metadata-action@v4
         with:
           images: |
-            bigthundersr/adt-pulse-mqtt
-            bigthundersr/adt-pulse-mqtt-amd64
-            #ghcr.io/bigthundersr/adt-pulse-mqtt
-            #ghcr.io/bigthundersr/adt-pulse-mqtt-amd64
+            robross0606/adt-pulse-mqtt
+            robross0606/adt-pulse-mqtt-amd64
+            #ghcr.io/robross0606/adt-pulse-mqtt
+            #ghcr.io/robross0606/adt-pulse-mqtt-amd64
           flavor: |
             latest=true
           tags: |
             type=semver,pattern={{version}}
-            type=sha            
+            type=sha
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
-        id: buildx 
+        id: buildx
         uses: docker/setup-buildx-action@v2
 
       - name: Login to Docker Hub
@@ -107,4 +107,4 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
       - name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }} 
+        run: echo ${{ steps.docker_build.outputs.digest }}
