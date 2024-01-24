@@ -17,7 +17,7 @@
     "cheerio": "^1.0.0-rc.12",
     "glob-parent": "^6.0.2",
     "lodash": "^4.17.21",
-    "mqtt": "^5.3.4",
+    "mqtt": "^5.3.5",
     "q": "~1.5.1",
     "request": "2.88.2",
     "tough-cookie": "^4.1.3"
