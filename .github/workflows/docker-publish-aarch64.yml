@@ -97,7 +97,7 @@ jobs:
       
       - name: Build and push default
         id: docker_build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./adt-pulse-mqtt/
           file: ./adt-pulse-mqtt/Dockerfile-aarch64
