@@ -8,6 +8,6 @@ changelog:
       exclude:
         labels:
           - dependencies
-    - title: 👒 Dependencies
+    - title: 📦 Dependencies
       labels:
         - dependencies
