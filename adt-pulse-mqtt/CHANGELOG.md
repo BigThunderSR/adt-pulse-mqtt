@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.3.4
+
+- Bug Fix: /smartthings/security/.../config by @robross0606 in #210
+
 ## 3.3.3
 
 - Resolve #202 Changing method of parsing data via cheerio by @robross0606 in #203
