@@ -172,9 +172,10 @@ ADT Pulse contact (door, window, etc.) and motion detection devices may be expos
 
 **&#9432;** Note that the MQTT Discovery edge driver does not currently support security panel devices, so there is no current support for either status or configuration of the ADT Pulse alarm system ("armed", "disarmed", "home", "away", etc.) via SmartThings. Only contact and motion devices are currently supported, though siren and/or panel support may come in a future update.
 
-1. Make sure the `adt-mqtt-pulse` application is configured and running properly.
-2. Follow instructions to set up the [MQTT Discover edge driver](https://github.com/toddaustin07/MQTT-Discovery?tab=readme-ov-file#instructions).
-3. Upon refresh in the SmartThings application, you should see ADT devices appear.
+1. Make sure an MQTT server is set up and available.
+2. Follow instructions to set up the [MQTT Discover edge driver](https://github.com/toddaustin07/MQTT-Discovery?tab=readme-ov-file#instructions) to subscribe to that MQTT server.
+3. Set up and ensure the `adt-mqtt-pulse` application is configured and running properly, pointing to the same MQTT server.
+4. Upon refresh in the MQTT Discovery device in SmartThings application as per setup instructions, you should see ADT devices appear.
 
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
 [amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg

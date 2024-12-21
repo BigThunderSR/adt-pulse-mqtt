@@ -32,7 +32,9 @@ client.on("connect", function () {
   console.log("MQTT Sub to: " + alarm_command_topic);
   client.subscribe(alarm_command_topic);
   if (smartthings) {
-    client.subscribe(smartthings_topic + "/security/ADT Alarm System/state");
+    client.subscribe(
+      smartthings_topic + "_future/security/ADT Alarm System/state",
+    );
   }
 });
 
@@ -43,7 +45,7 @@ client.on("message", function (topic, message) {
 
   if (
     smartthings &&
-    topic == smartthings_topic + "/security/ADT Alarm System/state" &&
+    topic == smartthings_topic + "_future/security/ADT Alarm System/state" &&
     message.toString().includes("_push")
   ) {
     var toState = null;
@@ -149,7 +151,7 @@ myAlarm.onStatusUpdate(function (device) {
     client.publish(alarm_state_topic, mqtt_state, { retain: true });
     if (smartthings) {
       var sm_alarm_topic =
-        smartthings_topic + "/security/ADT Alarm System/config";
+        smartthings_topic + "_future/security/ADT Alarm System/config";
       console.log(
         new Date().toLocaleString() +
           " Pushing alarm state to smartthings" +
