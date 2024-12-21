@@ -8,6 +8,10 @@ changelog:
       exclude:
         labels:
           - dependencies
+          - bug
+    - title: 🛠️ Bug Fix
+      labels:
+        - bug
     - title: 📦 Dependencies
       labels:
         - dependencies
