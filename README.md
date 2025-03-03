@@ -26,9 +26,9 @@ Integrates ADT Pulse with Home Assistant. You can also choose to expose ADT devi
 
 The pulse_login options are:
 
-- username: The ADT Pulse Portal Username
-- password: The ADT Pulse Portal Password
-- fingerprint: The fingerprint of trusted device authenticated with 2-factor authentication (see below)
+- `username`: The ADT Pulse Portal Username
+- `password`: The ADT Pulse Portal Password
+- `fingerprint`: The fingerprint of trusted device authenticated with 2-factor authentication (see below)
 
 ### 2-Factor Authentication
 
@@ -55,10 +55,10 @@ You'll need an MQTT broker. The Mosquitto add-on broker (https://www.home-assist
 
 In most cases, only the mqtt_options are needed:
 
-- mqtt_host: core-mosquitto (if using Mosquitto add-on, otherwise hostname or IP address)
+- `mqtt_host`: core-mosquitto (if using Mosquitto add-on, otherwise hostname or IP address)
 - mqtt_connection_options:
-  - username: MQTT broker username
-  - password: MQTT broker password
+  - `username`: MQTT broker username
+  - `password`: MQTT broker password
 
 In most cases, these options are sufficient. Alternatively, the mqtt_url can be specified instead which allows more advanced configurations (see https://www.npmjs.com/package/mqtt#connect).
 
@@ -70,7 +70,7 @@ To configure these, you must edit your configuration.yaml:
 
 To add the control panel:
 
-<pre>
+```yaml
 mqtt:
    alarm_control_panel:
      - name: "ADT Pulse"
@@ -80,19 +80,19 @@ mqtt:
        payload_arm_away: "arm_away"
        payload_disarm: "disarm"
        code_arm_required: false  ## Needs to be added starting with HA Core 2024.6 ##
-</pre>
+```
 
 After running the add-on, get a list all the zones found. There are a couple of ways to do this, but they all involve subscribing to the wildcard topic "adt/zones/#".
 
 I recommend the MQTT Snooper app on Android or just use the mosquito command-line command:
 
-<pre>
+```text
 # mosquitto_sub -h YOUR_MQTT_IP -v -t "adt/zone/#"
-</pre>
+```
 
 Once you know the names of MQTT topics for your zones, add the following to the configuration.yaml for each zone in binary_sensor:
 
-<pre>
+```yaml
 mqtt:
   binary_sensor:
     - name: "Kitchen Door"
@@ -101,11 +101,11 @@ mqtt:
       payload_off: "devStatOK"
       device_class: door
       retain: true
-</pre>
+```
 
 This will provide basic support for door sensors. You can add additional binary sensors for other possible state values. As an example, you can add support for a low battery condition on a sensor.
 
-<pre>
+```yaml
 mqtt:
   binary_sensor:
     - name: "Kitchen Door Sensor Battery"
@@ -113,19 +113,18 @@ mqtt:
       payload_on: "devStatLowBatt"
       payload_off: "devStatOK"
       device_class: battery
-</pre>
-
+```
 Note: State topic names come from your Pulse configuration.
 
 The possible state values are:
 
-- devStatOK (device okay)
-- devStatOpen (door/window opened)
-- devStatMotion (detected motion)
-- devstatLowBatt: (low battery condition)
-- devStatTamper (glass broken or device tamper)
-- devStatAlarm (detected CO/Smoke)
-- devStatUnknown (device offline)
+- `devStatOK` (device okay)
+- `devStatOpen` (door/window opened)
+- `devStatMotion` (detected motion)
+- `devstatLowBatt` (low battery condition)
+- `devStatTamper` (glass broken or device tamper)
+- `devStatAlarm` (detected CO/Smoke)
+- `devStatUnknown` (device offline)
 
 If a device type is not listed, open an issue containing your MQTT dump which lists your zones.
 
@@ -133,7 +132,7 @@ If a device type is not listed, open an issue containing your MQTT dump which li
 
 If you want to run this add-on independently using Docker, here is a sample Docker Compose file:
 
-```
+```docker
 version: '3'
 services:
    pulse-adt-mqtt:
@@ -147,7 +146,7 @@ services:
 
 Sample config.json placed in the config-directory:
 
-```
+```json
 {
     "pulse_login" : {
         "username": "username",
