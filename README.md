@@ -74,6 +74,7 @@ To add the control panel:
 mqtt:
    alarm_control_panel:
      - name: "ADT Pulse"
+       unique_id: adt_pulse_alarm_panel  ##  Required to configure the panel using the HA GUI. Make sure this value is unique to your environment.
        state_topic: "home/alarm/state"
        command_topic: "home/alarm/cmd"
        payload_arm_home: "arm_home"
