@@ -20,7 +20,7 @@
     "lodash": "^4.17.21",
     "mqtt": "^5.10.3",
     "request": "2.88.2",
-    "tough-cookie": "^5.1.1"
+    "tough-cookie": "^5.1.2"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.26.8",
