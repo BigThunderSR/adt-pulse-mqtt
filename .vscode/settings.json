@@ -1,4 +1,9 @@
 {
+  "prettier.enable": true,
+  "markdownlint.config": {
+    "default": true,
+    "MD033": false
+  },
   "cSpell.words": [
     "adtpulse",
     "adtpulsemqtt",
@@ -44,6 +49,5 @@
     "theform",
     "WORKDIR",
     "zonestatus"
-  ],
-  "prettier.enable": true
+  ]
 }
