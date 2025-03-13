@@ -1,3 +1,5 @@
+# adt-pulse-mqtt
+
 [![Home Assistant Add-on](https://img.shields.io/badge/home_assistant-add--on-blue.svg?logo=homeassistant&logoColor=white)](https://github.com/BigThunderSR/adt-pulse-mqtt)
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -8,8 +10,6 @@
 [![Node.js CI](https://github.com/BigThunderSR/adt-pulse-mqtt/actions/workflows/node.js.yml/badge.svg)](https://github.com/BigThunderSR/adt-pulse-mqtt/actions/workflows/node.js.yml)
 [![Builder](https://github.com/BigThunderSR/adt-pulse-mqtt/actions/workflows/builder.yaml/badge.svg)](https://github.com/BigThunderSR/adt-pulse-mqtt/actions/workflows/builder.yaml)
 
-# adt-pulse-mqtt
-
 ADT Pulse bridge for Home Assistant using MQTT.
 
 Integrates ADT Pulse with Home Assistant. You can also choose to expose ADT devices associated with your ADT Pulse alarm system to SmartThings using [MQTT Discovery](https://github.com/toddaustin07/MQTT-Discovery).
@@ -18,7 +18,7 @@ Integrates ADT Pulse with Home Assistant. You can also choose to expose ADT devi
 
 [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/BigThunderSR/adt-pulse-mqtt)
 
-- First, add the repository (https://github.com/BigThunderSR/adt-pulse-mqtt) using the Add-on Store in the Home Assistant Supervisor. This is the easiest way to run this add-on, but it can also run as an independent container using Docker. In both cases, communication is through MQTT.
+- First, add the repository (<https://github.com/BigThunderSR/adt-pulse-mqtt>) using the Add-on Store in the Home Assistant Supervisor. This is the easiest way to run this add-on, but it can also run as an independent container using Docker. In both cases, communication is through MQTT.
 - Install ADT Pulse MQTT from the store. Don't forget to configure `pulse_login` with your ADT Pulse Portal username and password. A separate login for Home Assistant is recommended.
 - Configure Add-on Options
 
@@ -51,7 +51,7 @@ ADT Pulse now requires 2-factor authentication and you will need to provide a de
 
 ### MQTT Options
 
-You'll need an MQTT broker. The Mosquitto add-on broker (https://www.home-assistant.io/addons/mosquitto/) is the easiest to implement.
+You'll need an MQTT broker. The Mosquitto add-on broker (<https://www.home-assistant.io/addons/mosquitto/>) is the easiest to implement.
 
 In most cases, only the mqtt_options are needed:
 
@@ -60,7 +60,7 @@ In most cases, only the mqtt_options are needed:
   - `username`: MQTT broker username
   - `password`: MQTT broker password
 
-In most cases, these options are sufficient. Alternatively, the mqtt_url can be specified instead which allows more advanced configurations (see https://www.npmjs.com/package/mqtt#connect).
+In most cases, these options are sufficient. Alternatively, the mqtt_url can be specified instead which allows more advanced configurations (see <https://www.npmjs.com/package/mqtt#connect>).
 
 ### Home Assistant Configuration
 
@@ -115,6 +115,7 @@ mqtt:
       payload_off: "devStatOK"
       device_class: battery
 ```
+
 Note: State topic names come from your Pulse configuration.
 
 The possible state values are:
