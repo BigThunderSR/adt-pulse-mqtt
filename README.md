@@ -97,6 +97,7 @@ Once you know the names of MQTT topics for your zones, add the following to the 
 mqtt:
   binary_sensor:
     - name: "Kitchen Door"
+      unique_id: adt_pulse_kitchen_door  ##  Required to configure the sensor using the HA GUI. Make sure this value is unique to your environment.
       state_topic: "adt/zone/Kitchen Door/state"
       payload_on: "devStatOpen"
       payload_off: "devStatOK"
@@ -110,6 +111,7 @@ This will provide basic support for door sensors. You can add additional binary 
 mqtt:
   binary_sensor:
     - name: "Kitchen Door Sensor Battery"
+      unique_id: adt_pulse_kitchen_door_sensor_battery  ##  Required to configure the sensor using the HA GUI. Make sure this value is unique to your environment.
       state_topic: "adt/zone/Kitchen Door/state"
       payload_on: "devStatLowBatt"
       payload_off: "devStatOK"
