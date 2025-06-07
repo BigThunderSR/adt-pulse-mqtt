@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.3.5
+
+- Dependency updates
+
 ## 3.3.4
 
 - Bug Fix: /smartthings/security/.../config by @robross0606 in #210
