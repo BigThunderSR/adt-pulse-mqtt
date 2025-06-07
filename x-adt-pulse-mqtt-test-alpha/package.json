@@ -18,7 +18,7 @@
     "cheerio": "^1.0.0",
     "glob-parent": "^6.0.2",
     "lodash": "^4.17.21",
-    "mqtt": "^5.10.4",
+    "mqtt": "^5.13.1",
     "request": "2.88.2",
     "tough-cookie": "^5.1.2"
   },
