@@ -1,4 +1,4 @@
-ARG BUILD_FROM=balenalib/amd64-alpine:3.20-run
+ARG BUILD_FROM=balenalib/amd64-alpine:3.21-run
 FROM $BUILD_FROM
 
 ENV LANG C.UTF-8

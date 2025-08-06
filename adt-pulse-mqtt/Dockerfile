@@ -1,4 +1,4 @@
-#ARG BUILD_FROM=balenalib/amd64-alpine:3.18-run
+#ARG BUILD_FROM=balenalib/amd64-alpine:3.21-run
 ARG BUILD_FROM
 FROM $BUILD_FROM
 
