@@ -1,6 +1,6 @@
 ---
 #squash: false
 build_from:
-  aarch64: balenalib/aarch64-alpine:3.18-run
-  amd64: balenalib/amd64-alpine:3.18-run
-  armhf: balenalib/armv7hf-alpine:3.18-run
+  aarch64: balenalib/aarch64-alpine:3.20-run
+  amd64: balenalib/amd64-alpine:3.20-run
+  armhf: balenalib/armv7hf-alpine:3.20-run
