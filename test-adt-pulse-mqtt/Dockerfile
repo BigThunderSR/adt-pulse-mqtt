@@ -1,8 +1,8 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
 
-ENV LANG C.UTF-8
-ENV NODE_ENV production
+ENV LANG=C.UTF-8
+ENV NODE_ENV=production
 
 # Install node and npm (Node 14 LTS)
 RUN apk add --update nodejs=~14

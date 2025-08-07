@@ -1,8 +1,8 @@
 ARG BUILD_FROM=balenalib/amd64-alpine:3.20-run
 FROM $BUILD_FROM
 
-ENV LANG C.UTF-8
-ENV NODE_ENV production
+ENV LANG=C.UTF-8
+ENV NODE_ENV=production
 
 # Install node and npm (Node 14 LTS)
 #RUN apk add --update nodejs=~14

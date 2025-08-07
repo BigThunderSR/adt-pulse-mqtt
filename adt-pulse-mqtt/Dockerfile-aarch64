@@ -1,9 +1,9 @@
 ARG BUILD_FROM=balenalib/aarch64-alpine:3.20-run
 FROM $BUILD_FROM
 
-ENV LANG C.UTF-8
-ENV NODE_ENV production
-ENV QEMU_EXECVE 1
+ENV LANG=C.UTF-8
+ENV NODE_ENV=production
+ENV QEMU_EXECVE=1
 
 RUN [ "cross-build-start" ]
 
