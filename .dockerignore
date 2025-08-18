@@ -9,29 +9,31 @@
 # Configuration files with sensitive information
 local-config.json
 config-local.json
-
-# Node.js dependencies and logs
-npm-debug.log
-yarn-debug.log*
-yarn-error.log*
-node_modules
-package-lock.json
+**/local-config.json
+**/config-local.json
 
 # Git repository
 .git
 .gitignore
 
-# Coverage and test artifacts
-coverage
-.nyc_output
-test-results
-target
+# Node.js dependencies and logs (all subdirectories)
+**/node_modules
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Coverage and test artifacts (all subdirectories)
+**/coverage
+**/.nyc_output
+**/test-results
+**/target
 
 # Development documentation (not needed in production)
 README.md
 LOCAL_TESTING.md
 CHANGELOG.md
 *.md
+**/*.md
 
 # IDE and editor files
 .vscode
@@ -39,6 +41,8 @@ CHANGELOG.md
 *.swp
 *.swo
 *~
+**/.vscode
+**/.idea
 
 # OS generated files
 .DS_Store
@@ -53,16 +57,27 @@ Thumbs.db
 temp
 tmp
 *.tmp
+**/temp
+**/tmp
 
 # Docker files (prevent recursive inclusion)
 Dockerfile*
 docker-compose*
 .dockerignore
+**/.dockerignore
 
 # Build and development scripts
 docker-build.sh
 test-local-setup.sh
 docker-hub-build*.sh
+**/docker-build.sh
+**/test-local-setup.sh
+**/docker-hub-build*.sh
 
 # Test directories (not needed in production)
 test/
+**/test/
+
+# Development directories that might contain sensitive data
+test-adt-pulse-mqtt/
+x-adt-pulse-mqtt-test-alpha/
