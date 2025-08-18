@@ -13,6 +13,7 @@ This guide shows you how to run and test the ADT Pulse MQTT bridge locally on yo
 ### Setup Steps
 
 #### 1. Install Dependencies
+
 ```bash
 cd /path/to/x-adt-pulse-mqtt-test-alpha
 npm install
@@ -62,13 +63,15 @@ SMARTTHINGS_ENABLED=false
 - If using MQTT authentication, fill in the `MQTT_USERNAME` and `MQTT_PASSWORD`
 
 **Configuration Priority:**
+
 1. **Environment variables** (from `.env` file) - 🔒 Most secure
 2. **Docker config** (`/data/options.json`) - For container deployment
 3. **Legacy local config** (`local-config.json`) - Backward compatibility
 
 #### 3. Set up MQTT Broker (if needed)
 
-**Option A: Install Mosquitto locally**
+##### Option A: Install Mosquitto locally
+
 ```bash
 # Ubuntu/Debian
 sudo apt-get install mosquitto mosquitto-clients
@@ -81,7 +84,8 @@ sudo systemctl start mosquitto  # Linux
 brew services start mosquitto   # macOS
 ```
 
-**Option B: Use Docker for MQTT only**
+##### Option B: Use Docker for MQTT only
+
 ```bash
 docker run -it -p 1883:1883 eclipse-mosquitto
 ```
@@ -95,6 +99,7 @@ npm run start
 ### Testing Commands
 
 #### Monitor MQTT Topics
+
 Open separate terminals to monitor MQTT traffic:
 
 ```bash
@@ -109,6 +114,7 @@ mosquitto_sub -h localhost -t "adt/#"
 ```
 
 #### Send Commands
+
 ```bash
 # Disarm alarm
 mosquitto_pub -h localhost -t "home/alarm/cmd" -m "DISARM"
@@ -136,22 +142,26 @@ npm run lint
 ### Troubleshooting
 
 #### Authentication Issues
+
 - Verify your ADT Pulse credentials work by logging into the web portal
 - Check if 2FA is enabled on your account (may require special handling)
 - Monitor the console output for specific authentication error messages
 
 #### MQTT Connection Issues
+
 - Verify MQTT broker is running: `mosquitto_pub -h localhost -t test -m "hello"`
 - Check firewall settings if using remote MQTT broker
 - Verify MQTT credentials if authentication is enabled
 
 #### Network Issues
+
 - The app connects to `https://portal.adtpulse.com`
 - Ensure your network allows HTTPS connections
 - Check for corporate firewalls or proxy settings
 
 ### File Structure
-```
+
+```text
 x-adt-pulse-mqtt-test-alpha/
 ├── adt-pulse.js           # Main ADT Pulse API client (now uses axios)
 ├── server.js              # MQTT bridge server
@@ -164,6 +174,7 @@ x-adt-pulse-mqtt-test-alpha/
 ### Differences from Docker Version
 
 When running locally:
+
 - Configuration is read from `local-config.json` instead of `/data/options.json`
 - No automatic restarts (you need to manually restart after crashes)
 - Logs go to console instead of Docker logs
@@ -172,6 +183,7 @@ When running locally:
 ### Integration Testing
 
 Once running, you can:
+
 1. Monitor the logs to see zone status updates
 2. Use Home Assistant MQTT integration to connect
 3. Test alarm state changes through MQTT commands
@@ -180,6 +192,7 @@ Once running, you can:
 ### Performance Notes
 
 The application:
+
 - Polls ADT Pulse every 5 seconds for status updates
 - Only sends MQTT updates when states actually change
 - Handles authentication automatically (re-login if session expires)
