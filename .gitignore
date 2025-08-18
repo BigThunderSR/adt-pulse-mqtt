@@ -66,6 +66,9 @@ typings/
 .env.development
 .env.test
 
+# BUT allow the template file
+!.env.example
+
 # Configuration files with sensitive information
 local-config.json
 config-local.json
