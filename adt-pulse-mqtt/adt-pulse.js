@@ -1,8 +1,13 @@
 // Forked from https://github.com/kevinmhickey/adt-pulse
-var request = require("request");
+var axios = require("axios");
+var axiosCookieJarSupport = require("axios-cookiejar-support").wrapper;
+var tough = require("tough-cookie");
 //var q = require('q');
 var cheerio = require("cheerio");
 var _ = require("lodash");
+
+// Setup axios with cookie support
+axiosCookieJarSupport(axios);
 
 //Cookie jar
 var j;
@@ -69,27 +74,30 @@ module.exports = pulse;
           new Date().toLocaleString() + " Pulse: Login Called, Authenticating",
         );
 
-        j = request.jar();
+        j = new tough.CookieJar();
 
         that.isAuthenticating = true;
-        request(
-          {
-            url: this.config.baseUrl + this.config.initialURI, // call with no prefix to grab the prefix
+        axios
+          .get(this.config.baseUrl + this.config.initialURI, {
             jar: j,
+            withCredentials: true,
             headers: {
               Accept:
                 "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
               "User-Agent": ua,
             },
-          },
-          function (e, hResp) {
+            maxRedirects: 10,
+            validateStatus: function (status) {
+              return status < 400; // Accept any status code less than 400
+            },
+          })
+          .then(function (hResp) {
             // expecting /myhome/VERSION/access/signin.jsp
             if (hResp == null) {
               console.log(
                 "\x1b[31m%s\x1b[0m",
                 new Date().toLocaleString() +
-                  " Pulse: Authentication Bad Response Error - " +
-                  JSON.stringify(e),
+                  " Pulse: Authentication Bad Response Error - No Response",
               );
               that.authenticated = false;
               that.isAuthenticating = false;
@@ -99,10 +107,10 @@ module.exports = pulse;
             console.log(
               new Date().toLocaleString() +
                 " Pulse: Authentication Received Pathname - " +
-                hResp.request.uri.pathname,
+                hResp.request.path,
             );
 
-            var uriPart = hResp.request.uri.pathname.match(
+            var uriPart = hResp.request.path.match(
               /\/myhome\/(.+?)\/access/,
             )[1];
             console.log(
@@ -123,31 +131,40 @@ module.exports = pulse;
                 that.config.prefix +
                 that.config.authURI,
             );
-            request.post(
-              that.config.baseUrl + that.config.prefix + that.config.authURI,
-              {
-                followAllRedirects: true,
-                jar: j,
-                headers: {
-                  Host: "portal.adtpulse.com",
-                  Referrer:
-                    that.config.baseUrl +
-                    that.config.prefix +
-                    that.config.authURI,
-                  "User-Agent": ua,
+            
+            // Convert form data to URL-encoded string
+            const formData = new URLSearchParams();
+            formData.append('username', that.config.username);
+            formData.append('password', that.config.password);
+            formData.append('fingerprint', that.config.fingerprint);
+            
+            axios
+              .post(
+                that.config.baseUrl + that.config.prefix + that.config.authURI,
+                formData,
+                {
+                  jar: j,
+                  withCredentials: true,
+                  headers: {
+                    Host: "portal.adtpulse.com",
+                    Referrer:
+                      that.config.baseUrl +
+                      that.config.prefix +
+                      that.config.authURI,
+                    "User-Agent": ua,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                  },
+                  maxRedirects: 10,
+                  validateStatus: function (status) {
+                    return status < 400;
+                  },
                 },
-                form: {
-                  username: that.config.username,
-                  password: that.config.password,
-                  fingerprint: that.config.fingerprint,
-                },
-              },
-              function (err, httpResponse) {
+              )
+              .then(function (httpResponse) {
                 that.isAuthenticating = false;
                 if (
-                  err ||
                   httpResponse.request.path !==
-                    that.config.prefix + that.config.summaryURI
+                  that.config.prefix + that.config.summaryURI
                 ) {
                   that.authenticated = false;
                   console.log(
@@ -159,7 +176,7 @@ module.exports = pulse;
                     "\x1b[41m%s\x1b[0m",
                     new Date().toLocaleString() +
                       " Pulse: httpResponse - " +
-                      JSON.stringify(httpResponse),
+                      JSON.stringify(httpResponse.data),
                   );
                   reject();
                 } else {
@@ -172,10 +189,34 @@ module.exports = pulse;
                   resolve();
                   that.updateAll.call(that);
                 }
-              },
+              })
+              .catch(function (err) {
+                that.isAuthenticating = false;
+                that.authenticated = false;
+                console.log(
+                  "\x1b[31m%s\x1b[0m",
+                  new Date().toLocaleString() + " Pulse: Authentication Failed",
+                );
+                console.log(
+                  "\x1b[41m%s\x1b[0m",
+                  new Date().toLocaleString() +
+                    " Pulse: httpResponse - " +
+                    JSON.stringify(err.response ? err.response.data : err.message),
+                );
+                reject();
+              });
+          })
+          .catch(function (e) {
+            console.log(
+              "\x1b[31m%s\x1b[0m",
+              new Date().toLocaleString() +
+                " Pulse: Authentication Bad Response Error - " +
+                JSON.stringify(e.message),
             );
-          },
-        );
+            that.authenticated = false;
+            that.isAuthenticating = false;
+            reject();
+          });
       }
     });
   };
@@ -188,18 +229,23 @@ module.exports = pulse;
       new Date().toLocaleString() + " Pulse: Logout",
     );
 
-    request(
-      {
-        url: this.config.baseUrl + this.config.prefix + this.config.logoutURI,
+    axios
+      .get(this.config.baseUrl + this.config.prefix + this.config.logoutURI, {
         jar: j,
+        withCredentials: true,
         headers: {
           "User-Agent": ua,
         },
-      },
-      function () {
+        validateStatus: function (status) {
+          return status < 500; // Accept any status code less than 500
+        },
+      })
+      .then(function () {
         that.authenticated = false;
-      },
-    );
+      })
+      .catch(function () {
+        that.authenticated = false;
+      });
   }),
     (this.updateAll = function () {
       var that = this;
@@ -217,30 +263,28 @@ module.exports = pulse;
       );
 
       return new Promise((resolve, reject) => {
-        request(
-          {
-            url:
-              this.config.baseUrl +
+        axios
+          .get(
+            this.config.baseUrl +
               this.config.prefix +
               this.config.sensorOrbURI,
-            jar: j,
-            headers: {
-              "User-Agent": ua,
-              Referer:
-                this.config.baseUrl + this.config.prefix + this.summaryURI,
+            {
+              jar: j,
+              withCredentials: true,
+              headers: {
+                "User-Agent": ua,
+                Referer:
+                  this.config.baseUrl + this.config.prefix + this.summaryURI,
+              },
+              validateStatus: function (status) {
+                return status < 400;
+              },
             },
-          },
-          function (err, httpResponse, body) {
-            if (err) {
-              console.log(
-                "\x1b[31m%s\x1b[0m",
-                new Date().toLocaleString() +
-                  " Pulse.getZoneStatus (via Orb): Zone JSON Failed",
-              );
-              reject(err);
-            } else {
-              // Load response from call to Orb and parse html
-              const $ = cheerio.load(body);
+          )
+          .then(function (httpResponse) {
+            // Load response from call to Orb and parse html
+            const body = httpResponse.data;
+            const $ = cheerio.load(body);
               const sensors = $("#orbSensorsList table tr.p_listRow").toArray();
               // Map values of table to variables
               const output = _.map(sensors, (sensor) => {
@@ -338,9 +382,15 @@ module.exports = pulse;
                 );
               }
               resolve(output);
-            }
-          },
-        );
+            })
+          .catch(function (err) {
+            console.log(
+              "\x1b[31m%s\x1b[0m",
+              new Date().toLocaleString() +
+                " Pulse.getZoneStatus (via Orb): Zone JSON Failed",
+            );
+            reject(err);
+          });
       });
     });
 
@@ -352,29 +402,25 @@ module.exports = pulse;
     );
 
     return new Promise((resolve, reject) => {
-      request(
-        {
-          url:
-            this.config.baseUrl +
+      axios
+        .get(
+          this.config.baseUrl +
             this.config.prefix +
             this.config.otherStatusURI,
-          jar: j,
-          headers: {
-            "User-Agent": ua,
+          {
+            jar: j,
+            withCredentials: true,
+            headers: {
+              "User-Agent": ua,
+            },
+            validateStatus: function (status) {
+              return status < 400;
+            },
           },
-        },
-        function (err, httpResponse, body) {
-          if (err) {
-            console.log(
-              "\x1b[31m%s\x1b[0m",
-              new Date().toLocaleString() +
-                " Pulse.getDeviceStatus: Request Failed",
-            );
-            reject(err);
-            return;
-          }
-
+        )
+        .then(function (httpResponse) {
           try {
+            var body = httpResponse.data;
             var $ = cheerio.load(body);
             $("tr tr.p_listRow").each(function () {
               try {
@@ -406,13 +452,20 @@ module.exports = pulse;
               "\x1b[31m%s\x1b[0m",
               new Date().toLocaleString() +
                 " Pulse.getDeviceStatus: Failed - ::" +
-                body +
+                httpResponse.data +
                 "::",
             );
             reject(e);
           }
-        },
-      );
+        })
+        .catch(function (err) {
+          console.log(
+            "\x1b[31m%s\x1b[0m",
+            new Date().toLocaleString() +
+              " Pulse.getDeviceStatus: Request Failed",
+          );
+          reject(err);
+        });
     });
   };
   (this.onDeviceUpdate = function (updateCallback) {
@@ -435,45 +488,52 @@ module.exports = pulse;
       );
 
       return new Promise((resolve, reject) => {
-        request.post(
-          this.config.baseUrl +
-            this.config.prefix +
-            this.config.statusChangeURI +
-            "?fi=" +
-            device.serialnumber +
-            "&vn=level&u=On|Off&ft=light-onoff",
-          {
-            followAllRedirects: true,
-            jar: j,
-            headers: {
-              Host: "portal.adtpulse.com",
-              "User-Agent": ua,
-              Referer:
-                this.config.baseUrl +
-                this.config.prefix +
-                this.config.summaryURI,
+        // Convert form data to URL-encoded string
+        const formData = new URLSearchParams();
+        formData.append('sat', sat);
+        formData.append('value', device.state == 0 ? "Off" : "On");
+        
+        axios
+          .post(
+            this.config.baseUrl +
+              this.config.prefix +
+              this.config.statusChangeURI +
+              "?fi=" +
+              device.serialnumber +
+              "&vn=level&u=On|Off&ft=light-onoff",
+            formData,
+            {
+              jar: j,
+              withCredentials: true,
+              headers: {
+                Host: "portal.adtpulse.com",
+                "User-Agent": ua,
+                Referer:
+                  this.config.baseUrl +
+                  this.config.prefix +
+                  this.config.summaryURI,
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              maxRedirects: 10,
+              validateStatus: function (status) {
+                return status < 400;
+              },
             },
-            form: {
-              sat: sat,
-              value: device.state == 0 ? "Off" : "On",
-            },
-          },
-          function (err) {
-            if (err) {
-              console.log(
-                "\x1b[31m%s\x1b[0m",
-                new Date().toLocaleString() + " Pulse: Device State Failure",
-              );
-              reject();
-            } else {
-              console.log(
-                "\x1b[32m%s\x1b[0m",
-                new Date().toLocaleString() + " Pulse: Device State Success",
-              );
-              resolve();
-            }
-          },
-        );
+          )
+          .then(function () {
+            console.log(
+              "\x1b[32m%s\x1b[0m",
+              new Date().toLocaleString() + " Pulse: Device State Success",
+            );
+            resolve();
+          })
+          .catch(function (err) {
+            console.log(
+              "\x1b[31m%s\x1b[0m",
+              new Date().toLocaleString() + " Pulse: Device State Failure",
+            );
+            reject();
+          });
       });
     });
 
@@ -484,16 +544,22 @@ module.exports = pulse;
     );
 
     return new Promise((resolve, reject) => {
-      request(
-        {
-          url:
-            this.config.baseUrl + this.config.prefix + this.config.summaryURI,
-          jar: j,
-          headers: {
-            "User-Agent": ua,
+      axios
+        .get(
+          this.config.baseUrl + this.config.prefix + this.config.summaryURI,
+          {
+            jar: j,
+            withCredentials: true,
+            headers: {
+              "User-Agent": ua,
+            },
+            validateStatus: function (status) {
+              return status < 400;
+            },
           },
-        },
-        function (err, httpResponse, body) {
+        )
+        .then(function (httpResponse) {
+          var body = httpResponse.data;
           // signed in?
           if (body == null || body.includes("You have not yet signed in")) {
             console.log(
@@ -521,8 +587,15 @@ module.exports = pulse;
             reject();
             return false;
           }
-        },
-      );
+        })
+        .catch(function (err) {
+          console.log(
+            "\x1b[31m%s\x1b[0m",
+            new Date().toLocaleString() +
+              " Pulse: Error Getting SAT Request Failed",
+          );
+          reject(err);
+        });
     });
   };
 
@@ -623,80 +696,82 @@ module.exports = pulse;
           url,
       );
 
-      request(
-        {
-          url: url,
+      axios
+        .get(url, {
           jar: j,
+          withCredentials: true,
           headers: {
             "User-Agent": ua,
             Referer: ref,
           },
-        },
-        function (err, httpResponse, body) {
-          if (err) {
+          validateStatus: function (status) {
+            return status < 400;
+          },
+        })
+        .then(function (httpResponse) {
+          var body = httpResponse.data;
+          // when arming check if Some sensors are open or reporting motion
+          // need the new sat value;
+          if (
+            action.newstate != "disarm" &&
+            action.isForced != true &&
+            body.includes("Some sensors are open or reporting motion")
+          ) {
             console.log(
-              "\x1b[31m%s\x1b[0m",
+              "\x1b[33m%s\x1b[0m",
               new Date().toLocaleString() +
-                " Pulse.setAlarmState: Failed With - " +
-                body,
+                " Pulse.setAlarmState: Some sensors are open. Will force the alarm state.",
             );
-            reject();
+            newsat = body.match(
+              /sat=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/,
+            )[1];
+            if (newsat) {
+              sat = newsat;
+              console.log(
+                new Date().toLocaleString() +
+                  " Pulse.setAlarmState: New SAT - ::" +
+                  sat +
+                  "::",
+              );
+            }
+            action.isForced = true;
+            that.setAlarmState(action);
+            resolve(body);
           } else {
-            // when arming check if Some sensors are open or reporting motion
-            // need the new sat value;
+            // we failed?
+            // Arming Disarming states are captured. No need to call them failed.
             if (
-              action.newstate != "disarm" &&
-              action.isForced != true &&
-              body.includes("Some sensors are open or reporting motion")
+              !action.isForced &&
+              !body.includes("Disarming") &&
+              !body.includes("Arming")
             ) {
               console.log(
-                "\x1b[33m%s\x1b[0m",
+                "\x1b[31m%s\x1b[0m",
                 new Date().toLocaleString() +
-                  " Pulse.setAlarmState: Some sensors are open. Will force the alarm state.",
+                  " Pulse.setAlarmState: Forced Alarm State Failed - ::" +
+                  body +
+                  "::",
               );
-              newsat = body.match(
-                /sat=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/,
-              )[1];
-              if (newsat) {
-                sat = newsat;
-                console.log(
-                  new Date().toLocaleString() +
-                    " Pulse.setAlarmState: New SAT - ::" +
-                    sat +
-                    "::",
-                );
-              }
-              action.isForced = true;
-              that.setAlarmState(action);
-              resolve(body);
-            } else {
-              // we failed?
-              // Arming Disarming states are captured. No need to call them failed.
-              if (
-                !action.isForced &&
-                !body.includes("Disarming") &&
-                !body.includes("Arming")
-              ) {
-                console.log(
-                  "\x1b[31m%s\x1b[0m",
-                  new Date().toLocaleString() +
-                    " Pulse.setAlarmState: Forced Alarm State Failed - ::" +
-                    body +
-                    "::",
-                );
-                reject();
-              }
+              reject();
             }
-            console.log(
-              "\x1b[32m%s\x1b[0m",
-              new Date().toLocaleString() +
-                " Pulse.setAlarmState: Success. Forced? - " +
-                action.isForced,
-            );
-            resolve(body);
           }
-        },
-      );
+          console.log(
+            "\x1b[32m%s\x1b[0m",
+            new Date().toLocaleString() +
+              " Pulse.setAlarmState: Success. Forced? - " +
+              action.isForced,
+          );
+          resolve(body);
+        })
+        .catch(function (err) {
+          console.log(
+            "\x1b[31m%s\x1b[0m",
+            new Date().toLocaleString() +
+              " Pulse.setAlarmState: Failed With - " +
+              (err.response ? err.response.data : err.message),
+          );
+          reject();
+        });
     });
   };
 
@@ -724,11 +799,10 @@ module.exports = pulse;
     if (this.clients.length && !this.isAuthenticating) {
       var that = this;
       this.login().then(function () {
-        request(
-          {
-            url: that.config.baseUrl + that.config.prefix + that.config.syncURI,
+        axios
+          .get(that.config.baseUrl + that.config.prefix + that.config.syncURI, {
             jar: j,
-            followAllRedirects: true,
+            withCredentials: true,
             headers: {
               "User-Agent": ua,
               Referer:
@@ -736,13 +810,18 @@ module.exports = pulse;
                 that.config.prefix +
                 that.config.summaryURI,
             },
-          },
-          function (err, response, body) {
+            maxRedirects: 10,
+            validateStatus: function (status) {
+              return status < 500;
+            },
+          })
+          .then(function (response) {
+            var body = response.data;
             console.log(
               new Date().toLocaleString() + " Pulse.sync: Syncing - ",
               body,
             );
-            if (err || !body || body.indexOf("<html") > -1) {
+            if (!body || body.indexOf("<html") > -1) {
               that.authenticated = false;
               console.log(
                 "\x1b[31m%s\x1b[0m",
@@ -752,8 +831,14 @@ module.exports = pulse;
               lastsynckey = body;
               that.updateAll.call(that);
             }
-          },
-        );
+          })
+          .catch(function (err) {
+            that.authenticated = false;
+            console.log(
+              "\x1b[31m%s\x1b[0m",
+              new Date().toLocaleString() + " Pulse.sync: Sync Failed",
+            );
+          });
       });
     } else {
       console.log(
