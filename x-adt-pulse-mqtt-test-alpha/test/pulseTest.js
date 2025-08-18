@@ -468,7 +468,7 @@ describe("ADT Pulse Forced Arm Away Test", function () {
       "Armed stay. Some sensors are open or reporting motion. sat=11111111-2222-3333-4444-555555555555&href=",
     )
     .get(
-      "/myhome/13.0.0-153/quickcontrol/serv/RunRRACommand?sat=1234&href=rest/adt/ui/client/security/setForceArm&armstate=forcearm&arm=away&sat=11111111-2222-3333-4444-555555555555",
+      "/myhome/13.0.0-153/quickcontrol/serv/RunRRACommand?sat=11111111-2222-3333-4444-555555555555&href=rest/adt/ui/client/security/setForceArm&armstate=forcearm&arm=away",
     )
     .reply(200, "Armed away - forced");
 

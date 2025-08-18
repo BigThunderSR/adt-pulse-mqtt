@@ -1,6 +1,70 @@
 const Pulse = require("./adt-pulse.js");
 const mqtt = require("mqtt");
-var config = require("/data/options.json");
+const fs = require("fs");
+
+// Load environment variables from .env file (for local development)
+require('dotenv').config();
+
+// Configuration loading with priority:
+// 1. Environment variables (from .env file or system)
+// 2. Docker config file (/data/options.json)
+// 3. Local config file (legacy fallback)
+let config;
+
+function loadConfig() {
+  // First, try to load from environment variables
+  if (process.env.ADT_USERNAME && process.env.ADT_PASSWORD) {
+    console.log("Using configuration from environment variables (.env file)");
+    return {
+      ssl: process.env.SSL_ENABLED === 'true',
+      certfile: process.env.SSL_CERT_FILE || 'fullchain.pem',
+      keyfile: process.env.SSL_KEY_FILE || 'privkey.pem',
+      pulse_login: {
+        username: process.env.ADT_USERNAME,
+        password: process.env.ADT_PASSWORD,
+        fingerprint: process.env.ADT_FINGERPRINT || ''
+      },
+      mqtt_host: process.env.MQTT_HOST || 'localhost',
+      mqtt_url: process.env.MQTT_URL || '',
+      mqtt_connect_options: {
+        username: process.env.MQTT_USERNAME || '',
+        password: process.env.MQTT_PASSWORD || ''
+      },
+      alarm_state_topic: process.env.ALARM_STATE_TOPIC || 'home/alarm/state',
+      alarm_command_topic: process.env.ALARM_COMMAND_TOPIC || 'home/alarm/cmd',
+      zone_state_topic: process.env.ZONE_STATE_TOPIC || 'adt/zone',
+      smartthings_topic: process.env.SMARTTHINGS_TOPIC || 'smartthings',
+      smartthings: process.env.SMARTTHINGS_ENABLED === 'true'
+    };
+  }
+
+  // Second, try Docker config
+  try {
+    const dockerConfig = require("/data/options.json");
+    console.log("Using Docker configuration from /data/options.json");
+    return dockerConfig;
+  } catch (err) {
+    // Third, try legacy local config
+    try {
+      const localConfig = require("./local-config.json");
+      console.log("Using legacy local configuration from ./local-config.json");
+      return localConfig;
+    } catch (localErr) {
+      console.error("❌ Could not find configuration!");
+      console.error("");
+      console.error("For local development:");
+      console.error("  1. Copy .env.example to .env");
+      console.error("  2. Edit .env with your ADT Pulse and MQTT settings");
+      console.error("");
+      console.error("For Docker deployment:");
+      console.error("  Mount your config to /data/options.json");
+      console.error("");
+      process.exit(1);
+    }
+  }
+}
+
+config = loadConfig();
 var client;
 
 var myAlarm = new Pulse(
@@ -32,7 +96,9 @@ client.on("connect", function () {
   console.log("MQTT Sub to: " + alarm_command_topic);
   client.subscribe(alarm_command_topic);
   if (smartthings) {
-    client.subscribe(smartthings_topic + "/ADT Alarm System/alarm/state");
+    client.subscribe(
+      smartthings_topic + "_future/security/ADT Alarm System/state",
+    );
   }
 });
 
@@ -43,7 +109,7 @@ client.on("message", function (topic, message) {
 
   if (
     smartthings &&
-    topic == smartthings_topic + "/ADT Alarm System/alarm/state" &&
+    topic == smartthings_topic + "_future/security/ADT Alarm System/state" &&
     message.toString().includes("_push")
   ) {
     var toState = null;
@@ -61,7 +127,7 @@ client.on("message", function (topic, message) {
     }
     console.log(
       "\x1b[32m%s\x1b[0m",
-      new Date().toLocaleString() + " Pushing alarm state to HA:" + toState,
+      new Date().toLocaleString() + " Pushing alarm state to HA: " + toState,
     );
 
     if (toState != null) {
@@ -90,7 +156,7 @@ client.on("message", function (topic, message) {
     // I don't know this mode #5
     console.log(
       "\x1b[31m%s\x1b[0m",
-      new Date().toLocaleString() + " Unsupported state requested:" + msg,
+      new Date().toLocaleString() + " Unsupported state requested: " + msg,
     );
     return;
   }
@@ -148,7 +214,8 @@ myAlarm.onStatusUpdate(function (device) {
     );
     client.publish(alarm_state_topic, mqtt_state, { retain: true });
     if (smartthings) {
-      var sm_alarm_topic = smartthings_topic + "/ADT Alarm System/alarm/cmd";
+      var sm_alarm_topic =
+        smartthings_topic + "_future/security/ADT Alarm System/config";
       console.log(
         new Date().toLocaleString() +
           " Pushing alarm state to smartthings" +
@@ -161,33 +228,22 @@ myAlarm.onStatusUpdate(function (device) {
 });
 
 myAlarm.onZoneUpdate(function (device) {
-  var dev_zone_state_topic = zone_state_topic + "/" + device.name + "/state";
-  //var devValue = JSON.stringify(device);
-  var sm_dev_zone_state_topic;
-
-  // smartthings bridge assumes actionable devices have a topic set with cmd
+  // smartthings MQTT Discovery edge driver assumes:
+  // - New devices are announced/created with `config`
+  // - Device status are updated with `state`
   // adt/zone/DEVICE_NAME/state needs to turn into
-  // smartthings/DEVICE_NAME/door/cmd
-  // or
-  // smartthings/DEVICE_NAME/motion/cmd
+  // smartthings/contact/NODE_NAME/DEVICE_NAME/config
+  // smartthings/contact/NODE_NAME/DEVICE_NAME/state
+  // -or-
+  // smartthings/motion/NODE_NAME/DEVICE_NAME/config
+  // smartthings/motion/NODE_NAME/DEVICE_NAME/state
 
-  if (smartthings) {
-    var contactType = "door";
-    var contactValue = device.state == "devStatOK" ? "closed" : "open";
+  var trackedDeviceId = `${device.id}/${device.name}`;
+  var trackedDevice = devices[trackedDeviceId];
+  var isUntrackedDevice = trackedDevice == null;
+  if (isUntrackedDevice || device.timestamp > trackedDevice.timestamp) {
+    var dev_zone_state_topic = zone_state_topic + "/" + device.name + "/state";
 
-    if (device.tags.includes("motion")) {
-      contactType = "motion";
-      contactValue = device.state == "devStatOK" ? "inactive" : "active";
-    }
-    sm_dev_zone_state_topic =
-      smartthings_topic + "/" + device.name + "/" + contactType + "/cmd";
-  }
-
-  if (
-    devices[device.id] == null ||
-    devices[device.id] != null ||
-    device.timestamp > devices[device.id].timestamp
-  ) {
     client.publish(dev_zone_state_topic, device.state, { retain: false });
     console.log(
       "\x1b[32m%s\x1b[0m",
@@ -199,17 +255,53 @@ myAlarm.onZoneUpdate(function (device) {
     );
 
     if (smartthings) {
-      client.publish(sm_dev_zone_state_topic, contactValue, { retain: false });
+      var sm_device_type = "contact";
+      var sm_device_state = device.state == "devStatOK" ? "closed" : "open";
+      if (device.tags.includes("motion")) {
+        sm_device_type = "motion";
+        sm_device_state = device.state == "devStatOK" ? "inactive" : "active";
+      }
+
+      if (isUntrackedDevice) {
+        // Publish a config message
+        var sm_dev_zone_config_topic =
+          smartthings_topic +
+          "/" +
+          sm_device_type +
+          "/" +
+          trackedDeviceId +
+          "/config";
+        client.publish(sm_dev_zone_config_topic, sm_device_state, {
+          retain: false,
+        });
+        console.log(
+          new Date().toLocaleString() +
+            " Pushing new device to smartthings: " +
+            sm_device_state +
+            " to topic " +
+            sm_dev_zone_config_topic,
+        );
+      }
+      var sm_dev_zone_state_topic =
+        smartthings_topic +
+        "/" +
+        sm_device_type +
+        "/" +
+        trackedDeviceId +
+        "/state";
+      client.publish(sm_dev_zone_state_topic, sm_device_state, {
+        retain: false,
+      });
       console.log(
         new Date().toLocaleString() +
-          " Pushing to smartthings: " +
-          sm_dev_zone_state_topic +
-          " to " +
-          contactValue,
+          " Pushing device update to smartthings: " +
+          sm_device_state +
+          " to topic " +
+          sm_dev_zone_state_topic,
       );
     }
   }
-  devices[device.id] = device;
+  devices[trackedDeviceId] = device;
 });
 
 myAlarm.pulse();
