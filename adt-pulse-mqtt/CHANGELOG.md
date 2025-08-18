@@ -4,6 +4,7 @@
 
 - Dependency updates
 - Update minimum supported Node.js version to 20.x in package.json
+- Deprecate armhf builds
 
 ## 3.3.5
 

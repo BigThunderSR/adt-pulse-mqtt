@@ -11,7 +11,6 @@ url: https://github.com/BigThunderSR/adt-pulse-mqtt
 arch:
   - aarch64
   - amd64
-  - armhf
 map:
   - share:rw
   - ssl
