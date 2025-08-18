@@ -1,6 +1,61 @@
 const Pulse = require("./adt-pulse.js");
 const mqtt = require("mqtt");
-var config = require("/data/options.json");
+const fs = require("fs");
+const path = require("path");
+
+// Load environment variables from .env file if it exists
+try {
+  require("dotenv").config();
+} catch (err) {
+  // dotenv not available or .env file doesn't exist - that's okay
+}
+
+// Hierarchical configuration loading: env vars → Docker → legacy JSON
+function loadConfig() {
+  let config = {};
+
+  // Try to load from legacy JSON file first (for backward compatibility)
+  try {
+    if (fs.existsSync("/data/options.json")) {
+      config = require("/data/options.json");
+      console.log("✅ Loaded configuration from /data/options.json");
+    }
+  } catch (err) {
+    console.log("ℹ️  No legacy configuration file found at /data/options.json");
+  }
+
+  // Override with environment variables if they exist
+  const envConfig = {
+    pulse_login: {
+      username: process.env.PULSE_USERNAME || config.pulse_login?.username || "",
+      password: process.env.PULSE_PASSWORD || config.pulse_login?.password || "",
+      fingerprint: process.env.PULSE_FINGERPRINT || config.pulse_login?.fingerprint || "",
+    },
+    mqtt_host: process.env.MQTT_HOST || config.mqtt_host || "localhost",
+    mqtt_url: process.env.MQTT_URL || config.mqtt_url || null,
+    mqtt_connect_options: {
+      username: process.env.MQTT_USERNAME || config.mqtt_connect_options?.username || "",
+      password: process.env.MQTT_PASSWORD || config.mqtt_connect_options?.password || "",
+      port: parseInt(process.env.MQTT_PORT) || config.mqtt_connect_options?.port || 1883,
+      ...(config.mqtt_connect_options || {}),
+    },
+    alarm_state_topic: process.env.ALARM_STATE_TOPIC || config.alarm_state_topic || "adt/alarm/state",
+    alarm_command_topic: process.env.ALARM_COMMAND_TOPIC || config.alarm_command_topic || "adt/alarm/cmd",
+    zone_state_topic: process.env.ZONE_STATE_TOPIC || config.zone_state_topic || "adt/zone",
+    smartthings_topic: process.env.SMARTTHINGS_TOPIC || config.smartthings_topic || "smartthings",
+    smartthings: process.env.SMARTTHINGS_ENABLED === "true" || config.smartthings || false,
+  };
+
+  // Log configuration source
+  const hasEnvVars = process.env.PULSE_USERNAME || process.env.MQTT_HOST || process.env.MQTT_URL;
+  if (hasEnvVars) {
+    console.log("✅ Configuration enhanced with environment variables");
+  }
+
+  return envConfig;
+}
+
+var config = loadConfig();
 var client;
 
 var myAlarm = new Pulse(

@@ -54,17 +54,48 @@ typings/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
+# ========================================
+# SECURITY: Environment & Secrets
+# ========================================
+# Environment variables with credentials - CRITICAL FOR SECURITY
 .env
+.env.*
 .env.local
 .env.*.local
+.env.production
+.env.development
+.env.test
 
 # Configuration files with sensitive information
 local-config.json
 config-local.json
 **/local-config.json
 **/config-local.json
+config/local.json
+config/production.json
+config/development.json
 
+# AWS credentials
+.aws/
+aws-credentials
+aws-config
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# SSL certificates and keys
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+
+# ========================================
+# Development Tools & Build Artifacts
+# ========================================
 # Sensitive Information
 .coveralls.yml
 
@@ -74,6 +105,8 @@ config-local.json
 *.swp
 *.swo
 *~
+*.bak
+*.tmp
 
 # OS generated files
 .DS_Store
@@ -84,15 +117,24 @@ config-local.json
 ehthumbs.db
 Thumbs.db
 
-# Temporary files
+# Temporary files and directories
 temp/
 tmp/
 *.tmp
+.cache/
+.temp/
 
 # Development and testing artifacts
 test-results/
 coverage/
 .nyc_output/
+junit.xml
 
 # Docker development files
 docker-compose.override.yml
+docker-compose.local.yml
+
+# Local environment and testing
+local/
+.local/
+test-local-setup-result.log
