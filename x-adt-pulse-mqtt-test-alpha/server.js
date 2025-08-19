@@ -161,7 +161,13 @@ client.on("message", function (topic, message) {
     return;
   }
 
-  myAlarm.setAlarmState(action);
+  myAlarm.setAlarmState(action)
+    .then((result) => {
+      console.log("Alarm state change successful");
+    })
+    .catch((error) => {
+      console.error("Alarm state change failed:", error.message);
+    });
 });
 
 // Register Callbacks:

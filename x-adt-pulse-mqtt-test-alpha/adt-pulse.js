@@ -688,8 +688,13 @@ module.exports = pulse;
               );
             }
             action.isForced = true;
-            that.setAlarmState(action);
-            resolve(response.data);
+            that.setAlarmState(action)
+              .then((result) => {
+                resolve(result);
+              })
+              .catch((error) => {
+                reject(error);
+              });
           } else {
             // we failed?
             // Arming Disarming states are captured. No need to call them failed.
@@ -705,16 +710,17 @@ module.exports = pulse;
                   response.data +
                   "::",
               );
-              reject();
+              reject(new Error("Alarm state change failed - unexpected response"));
+              return;
             }
+            console.log(
+              "\x1b[32m%s\x1b[0m",
+              new Date().toLocaleString() +
+                " Pulse.setAlarmState: Success. Forced? - " +
+                action.isForced,
+            );
+            resolve(response.data);
           }
-          console.log(
-            "\x1b[32m%s\x1b[0m",
-            new Date().toLocaleString() +
-              " Pulse.setAlarmState: Success. Forced? - " +
-              action.isForced,
-          );
-          resolve(response.data);
         })
         .catch(function (err) {
           console.log(
@@ -723,7 +729,7 @@ module.exports = pulse;
               " Pulse.setAlarmState: Failed With - " +
               err.message,
           );
-          reject();
+          reject(new Error("Network error during alarm state change: " + err.message));
         });
     });
   };
