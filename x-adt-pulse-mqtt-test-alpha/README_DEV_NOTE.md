@@ -7,7 +7,7 @@ This README.md file is temporarily unlinked from the root symlink to allow safe 
 - README.md was a symlink: `README.md -> ../README.md`
 - Pointed to the repository-wide README file
 
-## Current State  
+## Current State
 
 - README.md is now a regular file (copied from root)
 - Safe to edit without affecting the main repository README
