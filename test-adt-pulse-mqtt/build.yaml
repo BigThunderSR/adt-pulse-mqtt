@@ -3,4 +3,4 @@
 build_from:
   aarch64: balenalib/aarch64-alpine:3.13-run
   amd64: balenalib/amd64-alpine:3.13-run
-  armhf: balenalib/armv7hf-alpine:3.13-run
+  #armhf: balenalib/armv7hf-alpine:3.13-run
