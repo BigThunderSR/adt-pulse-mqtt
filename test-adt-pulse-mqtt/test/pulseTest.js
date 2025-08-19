@@ -1,5 +1,6 @@
 "use strict";
 
+/* eslint-disable no-prototype-builtins, no-unused-vars */
 const assert = require("assert");
 const rewire = require("rewire");
 const nock = require("nock");

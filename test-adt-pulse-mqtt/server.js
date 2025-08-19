@@ -1,6 +1,5 @@
 const Pulse = require("./adt-pulse.js");
 const mqtt = require("mqtt");
-const fs = require("fs");
 
 // Load environment variables from .env file (for local development)
 require("dotenv").config();
@@ -43,13 +42,13 @@ function loadConfig() {
     const dockerConfig = require("/data/options.json");
     console.log("Using Docker configuration from /data/options.json");
     return dockerConfig;
-  } catch (err) {
+  } catch {
     // Third, try legacy local config
     try {
       const localConfig = require("./local-config.json");
       console.log("Using legacy local configuration from ./local-config.json");
       return localConfig;
-    } catch (localErr) {
+    } catch {
       console.error("❌ Could not find configuration!");
       console.error("");
       console.error("For local development:");
@@ -163,7 +162,7 @@ client.on("message", function (topic, message) {
 
   myAlarm
     .setAlarmState(action)
-    .then((result) => {
+    .then(() => {
       console.log("Alarm state change successful");
     })
     .catch((error) => {

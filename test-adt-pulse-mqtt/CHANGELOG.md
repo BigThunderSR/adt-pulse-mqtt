@@ -8,6 +8,7 @@
 - **Coverage Engine**: Now uses Node.js built-in V8 coverage for faster generation without runtime instrumentation overhead
 - **Dependency Cleanup**: Removed unnecessary transitive dependencies and resolved deprecation warnings
 - **ESLint Modernization**: Removed babel dependencies (130 packages) and migrated to native ESLint parsing for Node.js 20+
+- **Code Quality**: Fixed all ESLint errors including unused variables and unsafe prototype access patterns
 
 ## 4.0.0 - Major Release (2025-08-18)
 

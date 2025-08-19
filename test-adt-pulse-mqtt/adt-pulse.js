@@ -433,7 +433,7 @@ module.exports = pulse;
                       ? 0
                       : 1,
                 });
-              } catch (e) {
+              } catch {
                 console.log(
                   "\x1b[34m%s\x1b[0m",
                   new Date().toLocaleString() +
@@ -704,7 +704,7 @@ module.exports = pulse;
               new Date().toLocaleString() +
                 " Pulse.setAlarmState: Some sensors are open. Will force the alarm state.",
             );
-            newsat = response.data.match(
+            var newsat = response.data.match(
               /sat=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/,
             )[1];
             if (newsat) {
@@ -823,7 +823,7 @@ module.exports = pulse;
               that.updateAll.call(that);
             }
           })
-          .catch(function (err) {
+          .catch(function () {
             that.authenticated = false;
             console.log(
               "\x1b[31m%s\x1b[0m",
