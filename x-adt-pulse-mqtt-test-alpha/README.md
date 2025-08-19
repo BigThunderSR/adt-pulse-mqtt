@@ -30,7 +30,7 @@ See [LOCAL_TESTING.md](LOCAL_TESTING.md) for detailed instructions.
 
 - ✅ **Modern Dependencies**: Migrated from deprecated `request` to `axios`
 - ✅ **Local Testing**: Run without Docker for development
-- ✅ **Clean Tests**: All 51 tests passing with clean output
+- ✅ **Clean Tests**: All 76 tests passing with excellent coverage (83.02%)
 - ✅ **Same Functionality**: Full compatibility with existing setups
 
 ## Home Assistant Setup

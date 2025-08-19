@@ -21,7 +21,7 @@ npm install
 
 #### 2. Configure the Application
 
-**🔒 Secure Method (Recommended)**: Create a `.env` file
+**🌟 Recommended Method**: Create a `.env` file
 
 ```bash
 # Copy the example file
@@ -167,7 +167,9 @@ npm run lint
 x-adt-pulse-mqtt-test-alpha/
 ├── adt-pulse.js           # Main ADT Pulse API client (now uses axios)
 ├── server.js              # MQTT bridge server
-├── local-config.json      # Local configuration (you create this)
+├── .env                   # Environment variables (recommended config)
+├── .env.example           # Example environment file
+├── local-config.json      # Legacy configuration file (optional)
 ├── package.json           # Dependencies and scripts
 ├── test/                  # Test suite
 └── AXIOS_MIGRATION.md     # Migration documentation
@@ -177,7 +179,7 @@ x-adt-pulse-mqtt-test-alpha/
 
 When running locally:
 
-- Configuration is read from `local-config.json` instead of `/data/options.json`
+- Configuration is read from `.env` file (recommended) or `local-config.json` (legacy) instead of `/data/options.json`
 - No automatic restarts (you need to manually restart after crashes)
 - Logs go to console instead of Docker logs
 - You manage the Node.js process directly
