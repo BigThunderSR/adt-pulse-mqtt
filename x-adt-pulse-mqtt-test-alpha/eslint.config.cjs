@@ -1,6 +1,4 @@
-const babel = require("@babel/eslint-plugin");
 const globals = require("globals");
-const babelParser = require("@babel/eslint-parser");
 const js = require("@eslint/js");
 
 const { FlatCompat } = require("@eslint/eslintrc");
@@ -17,30 +15,15 @@ module.exports = [
   },
   ...compat.extends("eslint:recommended"),
   {
-    plugins: {
-      "@babel": babel,
-    },
-
     languageOptions: {
       globals: {
         ...globals.node,
-        ...globals.browser,
-        ...Object.fromEntries(
-          Object.entries(globals.browser).map(([key]) => [key, "off"]),
-        ),
         ...globals.commonjs,
         ...globals.mocha,
       },
 
-      parser: babelParser,
-      ecmaVersion: 2018,
-      sourceType: "module",
-
-      parserOptions: {
-        babelOptions: {
-          configFile: "./.babelrc",
-        },
-      },
+      ecmaVersion: 2022,
+      sourceType: "commonjs",
     },
 
     rules: {
