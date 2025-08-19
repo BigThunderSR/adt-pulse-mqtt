@@ -26,7 +26,7 @@
     "glob-parent": "^6.0.2",
     "lodash": "^4.17.21",
     "mqtt": "^5.14.0",
-    "tough-cookie": "^6.0.0"
+    "tough-cookie": "^5.0.5"
   },
   "devDependencies": {
     "mocha": "^11.7.1",
