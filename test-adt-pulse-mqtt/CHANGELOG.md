@@ -1,4 +1,4 @@
-# Changelog
+# Changelog - Test Version
 
 ## 4.0.0 - Major Release (2025-08-18)
 
@@ -48,6 +48,12 @@
 - **Optional**: Migrate to `.env` file for better security
 - **Recommended**: Review `LOCAL_TESTING.md` for new development features
 - **Automatic**: Dependencies updated during container rebuild
+
+### 🧪 Test Environment Features
+
+- **Enhanced Linting**: Additional ESLint and Babel configurations for comprehensive code quality
+- **Development Tools**: Extended devDependencies for testing and validation
+- **Metadata**: Test-specific naming (`adtpulsemqtt_bigthundersr_test`) and Docker registry paths
 
 ### 🎯 Impact
 
