@@ -469,7 +469,7 @@ module.exports = pulse;
               "&vn=level&u=On|Off&ft=light-onoff",
             qs.stringify({
               sat: sat,
-              value: device.state == 0 ? "Off" : "On",
+              value: device.state === 0 ? "Off" : "On",
             }),
             {
               headers: {
@@ -575,9 +575,9 @@ module.exports = pulse;
 
       ref = this.config.baseUrl + this.config.prefix + this.config.summaryURI;
 
-      if (action.newstate != "disarm") {
+      if (action.newstate !== "disarm") {
         // we are arming.
-        if (action.isForced == true) {
+        if (action.isForced === true) {
           if (sat) {
             url =
               this.config.baseUrl +
@@ -666,8 +666,8 @@ module.exports = pulse;
           // when arming check if Some sensors are open or reporting motion
           // need the new sat value;
           if (
-            action.newstate != "disarm" &&
-            action.isForced != true &&
+            action.newstate !== "disarm" &&
+            action.isForced !== true &&
             response.data.includes("Some sensors are open or reporting motion")
           ) {
             console.log(
@@ -774,8 +774,8 @@ module.exports = pulse;
                 new Date().toLocaleString() + " Pulse.sync: Sync Failed",
               );
             } else if (
-              lastsynckey != response.data ||
-              "1-0-0" == response.data
+              lastsynckey !== response.data ||
+              "1-0-0" === response.data
             ) {
               lastsynckey = response.data;
               that.updateAll.call(that);
