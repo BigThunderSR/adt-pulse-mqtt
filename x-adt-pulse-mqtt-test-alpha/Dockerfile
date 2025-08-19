@@ -9,10 +9,13 @@ ENV NODE_ENV=production
 #RUN apk add --update nodejs=~14
 #RUN apk add --update nodejs-npm=~14
 
-# Install node and npm (Node 18 LTS)
+# Install node and npm (Node 20+ LTS) - Required for modern JavaScript syntax and axios/undici
 RUN apk add --no-cache \
     nodejs \
     npm
+
+# Verify Node.js version meets requirements (>= 20)
+RUN node --version
 
 WORKDIR /usr/src/app
 

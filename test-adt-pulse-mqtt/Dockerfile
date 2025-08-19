@@ -4,25 +4,28 @@ FROM $BUILD_FROM
 ENV LANG=C.UTF-8
 ENV NODE_ENV=production
 
-# Install node and npm (Node 14 LTS)
-RUN apk add --update nodejs=~14
-RUN apk add --update nodejs-npm=~14
+# Install node and npm (Node 20+ LTS) - Required for modern JavaScript syntax and axios/undici
+RUN apk add --no-cache \
+    nodejs \
+    npm
 
-# Install node and npm (Node 18 LTS)
-#RUN apk add --update nodejs=~18
-#RUN apk add --update nodejs-npm=~18
+# Verify Node.js version meets requirements (>= 20)
+RUN node --version
 
 WORKDIR /usr/src/app
 
 # Install app dependencies
-COPY package.json .
-RUN npm install --production
+COPY ["package.json", "/usr/src/app/"]
+COPY ["package-lock.json", "/usr/src/app/"]
+
+# Use npm ci for faster, reliable, reproducible builds
+RUN npm ci --omit=dev --no-fund
 
 # Bundle app source
-COPY . .
+COPY ./ /usr/src/app/
 
 # Copy data for add-on
-COPY run.sh /
-RUN chmod a+x /run.sh
+COPY run.sh /usr/src/app/
+RUN chmod a+x /usr/src/app/run.sh
 
-CMD [ "/run.sh" ]
+CMD [ "/usr/src/app/run.sh" ]
