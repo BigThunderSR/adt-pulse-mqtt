@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node server.js",
     "debug": "node --nolazy --inspect=9229 --trace-warnings server.js",
-    "test": "nyc --reporter=html --reporter=text --reporter=lcov mocha",
+    "test": "c8 --reporter=html --reporter=text --reporter=lcov mocha",
     "lint": "prettier --write ."
   },
   "repository": {
@@ -23,16 +23,15 @@
     "axios-cookiejar-support": "^5.0.5",
     "cheerio": "^1.1.2",
     "dotenv": "^17.2.1",
-    "glob-parent": "^6.0.2",
     "lodash": "^4.17.21",
     "mqtt": "^5.14.0",
     "tough-cookie": "^5.0.5"
   },
   "devDependencies": {
+    "c8": "^10.1.3",
     "mocha": "^11.7.1",
     "mocha-lcov-reporter": "^1.3.0",
     "nock": "^14.0.10",
-    "nyc": "^17.1.0",
     "prettier": "^3.6.2",
     "rewire": "^9.0.1"
   }
