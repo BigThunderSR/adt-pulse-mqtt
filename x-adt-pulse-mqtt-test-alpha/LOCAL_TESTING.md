@@ -54,6 +54,14 @@ SMARTTHINGS_ENABLED=false
 
 **Legacy Method**: You can still use `local-config.json` format, but `.env` is preferred as it follows modern Node.js environment variable conventions and provides better IDE support for environment variables.
 
+```bash
+# If you prefer JSON format, copy the example file
+cp local-config.json.example local-config.json
+
+# Edit with your actual settings
+nano local-config.json  # or your preferred editor
+```
+
 **Important Configuration Notes:**
 
 - **Security**: Both `.env` and `local-config.json` files contain sensitive credentials and are excluded from Git via `.gitignore`
@@ -170,6 +178,7 @@ x-adt-pulse-mqtt-test-alpha/
 ├── .env                   # Environment variables (recommended config)
 ├── .env.example           # Example environment file
 ├── local-config.json      # Legacy configuration file (optional)
+├── local-config.json.example # Example legacy configuration file
 ├── package.json           # Dependencies and scripts
 ├── test/                  # Test suite
 └── AXIOS_MIGRATION.md     # Migration documentation

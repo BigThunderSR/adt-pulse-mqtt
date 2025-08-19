@@ -1,0 +1,21 @@
+{
+  "ssl": false,
+  "certfile": "fullchain.pem",
+  "keyfile": "privkey.pem",
+  "pulse_login": {
+    "username": "your_adt_username_here",
+    "password": "your_adt_password_here",
+    "fingerprint": "your_browser_fingerprint_here"
+  },
+  "mqtt_host": "localhost",
+  "mqtt_url": "",
+  "mqtt_connect_options": {
+    "username": "your_mqtt_username_here",
+    "password": "your_mqtt_password_here"
+  },
+  "alarm_state_topic": "home/alarm/state",
+  "alarm_command_topic": "home/alarm/cmd",
+  "zone_state_topic": "adt/zone",
+  "smartthings_topic": "smartthings",
+  "smartthings": false
+}
