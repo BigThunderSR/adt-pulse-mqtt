@@ -51,15 +51,35 @@ jobs:
         id: changed_addons
         run: |
           declare -a changed_addons
+          
+          # Get list of all changed files as array
+          IFS=' ' read -ra CHANGED_FILES <<< "${{ steps.changed_files.outputs.all }}"
+          
+          # Check each addon individually
           for addon in ${{ steps.addons.outputs.addons }}; do
-            for file in ${{ env.MONITORED_FILES }}; do
-                # Check if the specific addon's file was changed (exact path match)
-                if echo "${{ steps.changed_files.outputs.all }}" | grep -q "\b$addon/$file\b"; then
-                  if [[ ! "${changed_addons[@]}" =~ $addon ]]; then
-                    changed_addons+=("\"${addon}\",");
+            addon_changed=false
+            
+            # Check if any of the addon's monitored files changed
+            for changed_file in "${CHANGED_FILES[@]}"; do
+              # Extract directory and filename from changed file
+              if [[ "$changed_file" == "$addon/"* ]]; then
+                file_basename=$(basename "$changed_file")
+                # Check if this basename matches any monitored file
+                for monitored in ${{ env.MONITORED_FILES }}; do
+                  if [[ "$file_basename" == "$monitored" ]] || [[ "$changed_file" == "$addon/$monitored" ]]; then
+                    addon_changed=true
+                    break 2
                   fi
-                fi
+                done
+              fi
             done
+            
+            # Add to changed list if found
+            if [[ "$addon_changed" == true ]]; then
+              if [[ ! "${changed_addons[@]}" =~ $addon ]]; then
+                changed_addons+=("\"${addon}\",");
+              fi
+            fi
           done
 
           changed=$(echo ${changed_addons[@]} | rev | cut -c 2- | rev)
