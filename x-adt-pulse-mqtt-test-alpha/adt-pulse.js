@@ -237,8 +237,18 @@ module.exports = pulse;
 
       this.getAlarmStatus()
         .then(function () {
-          that.getDeviceStatus();
-          that.getZoneStatusOrb();
+          that.getDeviceStatus().catch(function (err) {
+            console.log(
+              "\x1b[31m%s\x1b[0m",
+              new Date().toLocaleString() + " Pulse: updateAll - getDeviceStatus failed: " + (err.message || err)
+            );
+          });
+          that.getZoneStatusOrb().catch(function (err) {
+            console.log(
+              "\x1b[31m%s\x1b[0m",
+              new Date().toLocaleString() + " Pulse: updateAll - getZoneStatusOrb failed: " + (err.message || err)
+            );
+          });
         })
         .catch(function (err) {
           console.log(
