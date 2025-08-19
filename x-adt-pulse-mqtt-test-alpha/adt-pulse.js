@@ -102,7 +102,7 @@ module.exports = pulse;
               );
               that.authenticated = false;
               that.isAuthenticating = false;
-              reject();
+              reject(new Error("Authentication failed - bad response"));
               return;
             }
 
@@ -184,7 +184,7 @@ module.exports = pulse;
                   " Pulse: httpResponse - " +
                   JSON.stringify(httpResponse.request),
               );
-              reject();
+              reject(new Error("Authentication failed - invalid redirect response"));
             } else {
               that.authenticated = true;
               console.log(
@@ -204,7 +204,7 @@ module.exports = pulse;
                 " Pulse: Authentication Error - " +
                 JSON.stringify(e.message),
             );
-            reject();
+            reject(new Error(`Authentication error: ${e.message || e}`));
           });
       }
     });
@@ -235,10 +235,17 @@ module.exports = pulse;
       var that = this;
       console.log(new Date().toLocaleString() + " Pulse: updateAll");
 
-      this.getAlarmStatus().then(function () {
-        that.getDeviceStatus();
-        that.getZoneStatusOrb();
-      });
+      this.getAlarmStatus()
+        .then(function () {
+          that.getDeviceStatus();
+          that.getZoneStatusOrb();
+        })
+        .catch(function (err) {
+          console.log(
+            "\x1b[31m%s\x1b[0m",
+            new Date().toLocaleString() + " Pulse: updateAll - getAlarmStatus failed: " + (err.message || err)
+          );
+        });
     }),
     (this.getZoneStatusOrb = function () {
       console.log(
@@ -495,7 +502,7 @@ module.exports = pulse;
               "\x1b[31m%s\x1b[0m",
               new Date().toLocaleString() + " Pulse: Device State Failure",
             );
-            reject();
+            reject(new Error(`Device state change failed: ${err.message || err}`));
           });
       });
     }));
@@ -527,7 +534,7 @@ module.exports = pulse;
               new Date().toLocaleString() +
                 " Pulse: Error Getting SAT Login, Timed Out",
             );
-            reject();
+            reject(new Error("Login timed out - not signed in"));
             return false;
           }
           //parse the html
@@ -544,7 +551,7 @@ module.exports = pulse;
                 "::" +
                 e,
             );
-            reject();
+            reject(new Error(`Cheerio parsing failed: ${e.message}`));
             return false;
           }
         })
@@ -553,7 +560,7 @@ module.exports = pulse;
             "\x1b[31m%s\x1b[0m",
             new Date().toLocaleString() + " Pulse: Error Getting Alarm Status",
           );
-          reject();
+          reject(new Error(`Alarm status request failed: ${err.message || err}`));
         });
     });
   };
