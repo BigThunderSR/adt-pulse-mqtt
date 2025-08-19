@@ -56,6 +56,43 @@ typings/
 
 # dotenv environment variables file
 .env
+.env.local
+.env.*.local
+
+# Configuration files with sensitive information
+local-config.json
+config-local.json
+**/local-config.json
+**/config-local.json
 
 # Sensitive Information
 .coveralls.yml
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Development and testing artifacts
+test-results/
+coverage/
+.nyc_output/
+
+# Docker development files
+docker-compose.override.yml
