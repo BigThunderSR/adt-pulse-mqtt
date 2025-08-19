@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.1.0 - Modernization & Optimization Release
+
+### 🔧 Infrastructure Improvements
+
+- **Testing Framework**: Migrated from `nyc` to modern `c8` coverage tool
+- **Coverage Engine**: Now uses Node.js built-in V8 coverage for faster generation without runtime instrumentation overhead
+- **Dependency Cleanup**: Removed unnecessary transitive dependencies and resolved deprecation warnings
+
 ## 4.0.0 - Major Release (2025-08-18)
 
 ### 🚀 Breaking Changes
