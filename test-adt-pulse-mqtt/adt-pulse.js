@@ -184,7 +184,9 @@ module.exports = pulse;
                   " Pulse: httpResponse - " +
                   JSON.stringify(httpResponse.request),
               );
-              reject(new Error("Authentication failed - invalid redirect response"));
+              reject(
+                new Error("Authentication failed - invalid redirect response"),
+              );
             } else {
               that.authenticated = true;
               console.log(
@@ -240,20 +242,26 @@ module.exports = pulse;
           that.getDeviceStatus().catch(function (err) {
             console.log(
               "\x1b[31m%s\x1b[0m",
-              new Date().toLocaleString() + " Pulse: updateAll - getDeviceStatus failed: " + (err.message || err)
+              new Date().toLocaleString() +
+                " Pulse: updateAll - getDeviceStatus failed: " +
+                (err.message || err),
             );
           });
           that.getZoneStatusOrb().catch(function (err) {
             console.log(
               "\x1b[31m%s\x1b[0m",
-              new Date().toLocaleString() + " Pulse: updateAll - getZoneStatusOrb failed: " + (err.message || err)
+              new Date().toLocaleString() +
+                " Pulse: updateAll - getZoneStatusOrb failed: " +
+                (err.message || err),
             );
           });
         })
         .catch(function (err) {
           console.log(
             "\x1b[31m%s\x1b[0m",
-            new Date().toLocaleString() + " Pulse: updateAll - getAlarmStatus failed: " + (err.message || err)
+            new Date().toLocaleString() +
+              " Pulse: updateAll - getAlarmStatus failed: " +
+              (err.message || err),
           );
         });
     }),
@@ -512,7 +520,9 @@ module.exports = pulse;
               "\x1b[31m%s\x1b[0m",
               new Date().toLocaleString() + " Pulse: Device State Failure",
             );
-            reject(new Error(`Device state change failed: ${err.message || err}`));
+            reject(
+              new Error(`Device state change failed: ${err.message || err}`),
+            );
           });
       });
     }));
@@ -570,7 +580,9 @@ module.exports = pulse;
             "\x1b[31m%s\x1b[0m",
             new Date().toLocaleString() + " Pulse: Error Getting Alarm Status",
           );
-          reject(new Error(`Alarm status request failed: ${err.message || err}`));
+          reject(
+            new Error(`Alarm status request failed: ${err.message || err}`),
+          );
         });
     });
   };
@@ -705,7 +717,8 @@ module.exports = pulse;
               );
             }
             action.isForced = true;
-            that.setAlarmState(action)
+            that
+              .setAlarmState(action)
               .then((result) => {
                 resolve(result);
               })
@@ -727,7 +740,9 @@ module.exports = pulse;
                   response.data +
                   "::",
               );
-              reject(new Error("Alarm state change failed - unexpected response"));
+              reject(
+                new Error("Alarm state change failed - unexpected response"),
+              );
               return;
             }
             console.log(
@@ -746,7 +761,11 @@ module.exports = pulse;
               " Pulse.setAlarmState: Failed With - " +
               err.message,
           );
-          reject(new Error("Network error during alarm state change: " + err.message));
+          reject(
+            new Error(
+              "Network error during alarm state change: " + err.message,
+            ),
+          );
         });
     });
   };
