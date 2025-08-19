@@ -8,7 +8,7 @@
 - **Testing Framework**: Migrated from `nyc` to modern `c8` coverage tool using Node.js built-in V8 coverage
 - **Architecture Support**: Removed `armhf` architecture, focusing on `aarch64` and `amd64` for better performance
 - **Dependency Updates**: Major version updates to core dependencies with security improvements
-- **Removed Dependencies**: Eliminated `request`, `coveralls`, and other deprecated packages
+- **Removed Dependencies**: Eliminated deprecated `request` package and streamlined dependencies
 
 ### ✨ New Features & Enhancements
 
@@ -58,7 +58,7 @@
 ### 🎯 Impact Summary
 
 - **Reliability**: Significantly reduced application crashes from network issues
-- **Performance**: Faster test coverage generation and improved HTTP handling
+- **Modernization**: Updated to modern HTTP client (axios) and native Node.js coverage tools (c8)
 - **Security**: Modern dependencies with active security support and vulnerability patches
 - **Maintainability**: Cleaner codebase with comprehensive error handling and testing
 - **Development**: Enhanced testing framework, documentation, and code quality tools
