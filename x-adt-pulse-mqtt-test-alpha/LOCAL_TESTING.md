@@ -52,11 +52,11 @@ SMARTTHINGS_TOPIC=smartthings
 SMARTTHINGS_ENABLED=false
 ```
 
-**Legacy Method**: You can still use `local-config.json` format, but `.env` is more secure since it won't be committed to Git.
+**Legacy Method**: You can still use `local-config.json` format, but `.env` is preferred as it follows modern Node.js environment variable conventions and provides better IDE support for environment variables.
 
 **Important Configuration Notes:**
 
-- **Security**: The `.env` file contains sensitive credentials and will NOT be committed to Git
+- **Security**: Both `.env` and `local-config.json` files contain sensitive credentials and are excluded from Git via `.gitignore`
 - Replace `your_actual_adt_username` and `your_actual_adt_password` with your ADT Pulse credentials
 - Set `fingerprint` to your device identifier (if you don't have one, you can leave it empty initially)  
 - Update `MQTT_HOST` to point to your MQTT broker (localhost if running locally)
@@ -64,9 +64,11 @@ SMARTTHINGS_ENABLED=false
 
 **Configuration Priority:**
 
-1. **Environment variables** (from `.env` file) - 🔒 Most secure
+1. **Environment variables** (from `.env` file) - 🌟 Modern standard, better IDE support
 2. **Docker config** (`/data/options.json`) - For container deployment
 3. **Legacy local config** (`local-config.json`) - Backward compatibility
+
+**Note**: Both `.env` and `local-config.json` are protected by `.gitignore` and will not be committed to version control.
 
 #### 3. Set up MQTT Broker (if needed)
 
