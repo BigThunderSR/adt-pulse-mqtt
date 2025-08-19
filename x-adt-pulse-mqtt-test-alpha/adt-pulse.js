@@ -114,18 +114,28 @@ module.exports = pulse;
                 pathname,
             );
 
-            var uriPart = pathname.match(/\/myhome\/(.+?)\/access/)[1];
-            console.log(
-              new Date().toLocaleString() +
-                " Pulse: Authentication Page Version - " +
-                uriPart,
-            );
-            that.config.prefix = "/myhome/" + uriPart;
-            console.log(
-              new Date().toLocaleString() +
-                " Pulse: Authentication New URL Prefix - " +
-                that.config.prefix,
-            );
+            var uriMatch = pathname.match(/\/myhome\/(.+?)\/access/);
+            if (uriMatch && uriMatch[1]) {
+              var uriPart = uriMatch[1];
+              console.log(
+                new Date().toLocaleString() +
+                  " Pulse: Authentication Page Version - " +
+                  uriPart,
+              );
+              that.config.prefix = "/myhome/" + uriPart;
+              console.log(
+                new Date().toLocaleString() +
+                  " Pulse: Authentication New URL Prefix - " +
+                  that.config.prefix,
+              );
+            } else {
+              console.log(
+                new Date().toLocaleString() +
+                  " Pulse: Authentication Failed - Could not parse URI pattern from: " +
+                  pathname,
+              );
+              throw new Error("Failed to parse authentication URI pattern");
+            }
             console.log(
               new Date().toLocaleString() +
                 " Pulse: Authentication Calling - " +
@@ -335,10 +345,11 @@ module.exports = pulse;
               );
               zoneUpdateCB(s);
             });
-            var newsat = response.data.match(
+            var satMatch = response.data.match(
               /sat=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/,
-            )[1];
-            if (newsat) {
+            );
+            if (satMatch && satMatch[1]) {
+              var newsat = satMatch[1];
               sat = newsat;
               console.log(
                 "\x1b[32m%s\x1b[0m",
