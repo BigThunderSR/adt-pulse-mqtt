@@ -495,11 +495,10 @@ describe("ADT Pulse Error Handling Tests", function () {
   });
 
   it("Should handle authentication failure gracefully", function (done) {
-    nock("https://portal.adtpulse.com")
-      .get("/")
-      .reply(401, "Unauthorized");
+    nock("https://portal.adtpulse.com").get("/").reply(401, "Unauthorized");
 
-    testAlarm.login()
+    testAlarm
+      .login()
       .then(() => {
         done(); // Even if it succeeds, that's fine
       })
@@ -513,7 +512,8 @@ describe("ADT Pulse Error Handling Tests", function () {
       .get("/")
       .replyWithError("Network error");
 
-    testAlarm.login()
+    testAlarm
+      .login()
       .then(() => {
         done();
       })
@@ -525,7 +525,7 @@ describe("ADT Pulse Error Handling Tests", function () {
   it("Should handle missing config gracefully", function () {
     const emptyAlarm = new pulse("", "", "");
     clearInterval(emptyAlarm.pulseInterval);
-    
+
     assert.strictEqual(emptyAlarm.config.username, "");
     assert.strictEqual(emptyAlarm.config.password, "");
     assert.strictEqual(emptyAlarm.config.fingerprint, "");
@@ -534,7 +534,7 @@ describe("ADT Pulse Error Handling Tests", function () {
   it("Should handle null config values", function () {
     const nullAlarm = new pulse(null, null, null);
     clearInterval(nullAlarm.pulseInterval);
-    
+
     // Should not crash
     assert.ok(nullAlarm.config !== undefined);
   });
@@ -542,7 +542,7 @@ describe("ADT Pulse Error Handling Tests", function () {
   it("Should handle undefined config values", function () {
     const undefinedAlarm = new pulse(undefined, undefined, undefined);
     clearInterval(undefinedAlarm.pulseInterval);
-    
+
     // Should not crash
     assert.ok(undefinedAlarm.config !== undefined);
   });
@@ -552,7 +552,7 @@ describe("ADT Pulse Error Handling Tests", function () {
     const numericAlarm = new pulse(123, 456, 789);
     clearInterval(numericAlarm.pulseInterval);
     assert.ok(numericAlarm.config !== undefined);
-    
+
     // Test with boolean values
     const booleanAlarm = new pulse(true, false, true);
     clearInterval(booleanAlarm.pulseInterval);
@@ -562,14 +562,14 @@ describe("ADT Pulse Error Handling Tests", function () {
   it("Should test error path coverage", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Test setAlarmState with invalid parameters
     try {
       testAlarm.setAlarmState(null);
     } catch (error) {
       // Expected error path
     }
-    
+
     // Test deviceStateChange with invalid device
     try {
       testAlarm.deviceStateChange(null);
@@ -581,23 +581,23 @@ describe("ADT Pulse Error Handling Tests", function () {
   it("Should handle alarm status edge cases", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Test without authentication
     assert.strictEqual(testAlarm.authenticated, false);
-    
+
     // Test callback handling
-    const mockCallback = function() {};
+    const mockCallback = function () {};
     testAlarm.onStatusUpdate(mockCallback);
     testAlarm.onDeviceUpdate(mockCallback);
     testAlarm.onZoneUpdate(mockCallback);
-    
+
     assert.ok(true); // Test completed successfully
   });
 
   it("Should test logout functionality", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Mock logout request
     nock("https://portal.adtpulse.com")
       .get(/.*logout.*/)
@@ -605,17 +605,19 @@ describe("ADT Pulse Error Handling Tests", function () {
 
     testAlarm.authenticated = true;
     testAlarm.config.prefix = "/myhome/test";
-    
+
     // Test logout - it may not return a promise
     try {
       const result = testAlarm.logout();
-      if (result && typeof result.then === 'function') {
+      if (result && typeof result.then === "function") {
         // If it returns a promise, wait for it
-        return result.then(() => {
-          assert.strictEqual(testAlarm.authenticated, false);
-        }).catch(() => {
-          assert.strictEqual(testAlarm.authenticated, false);
-        });
+        return result
+          .then(() => {
+            assert.strictEqual(testAlarm.authenticated, false);
+          })
+          .catch(() => {
+            assert.strictEqual(testAlarm.authenticated, false);
+          });
       } else {
         // If no promise, just check the state
         assert.ok(true); // Method executed without error
@@ -629,18 +631,18 @@ describe("ADT Pulse Error Handling Tests", function () {
   it("Should handle device state changes", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Test deviceStateChange with mock device
     const mockDevice = {
       uri: "/test/device",
       state: 1,
-      name: "Test Device"
+      name: "Test Device",
     };
-    
+
     // Mock the SAT variable to prevent errors
     const originalSat = testAlarm.__proto__.constructor.__proto__.sat;
     testAlarm.constructor.sat = "test-sat-token";
-    
+
     try {
       testAlarm.deviceStateChange(mockDevice);
       assert.ok(true); // Should not throw
@@ -658,13 +660,14 @@ describe("ADT Pulse Error Handling Tests", function () {
   it("Should handle authentication bad response errors", function (done) {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Mock bad authentication response
     nock("https://portal.adtpulse.com")
       .get("/")
       .reply(200, "Bad response content"); // Non-redirect response
 
-    testAlarm.login()
+    testAlarm
+      .login()
       .then(() => {
         // If it somehow succeeds, that's fine too
         done();
@@ -683,16 +686,16 @@ describe("ADT Pulse Device Tests", function () {
   it("Should create device instance with proper methods", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
-    assert.ok(typeof testAlarm.getDeviceStatus === 'function');
-    assert.ok(typeof testAlarm.getZoneStatusOrb === 'function');
-    assert.ok(typeof testAlarm.getAlarmStatus === 'function');
+
+    assert.ok(typeof testAlarm.getDeviceStatus === "function");
+    assert.ok(typeof testAlarm.getZoneStatusOrb === "function");
+    assert.ok(typeof testAlarm.getAlarmStatus === "function");
   });
 
   it("Should handle device authentication state", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     assert.strictEqual(testAlarm.authenticated, false);
     testAlarm.authenticated = true;
     assert.strictEqual(testAlarm.authenticated, true);
@@ -701,7 +704,7 @@ describe("ADT Pulse Device Tests", function () {
   it("Should handle device prefix configuration", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     assert.ok(testAlarm.config.prefix !== undefined);
     testAlarm.config.prefix = "/test/path";
     assert.strictEqual(testAlarm.config.prefix, "/test/path");
@@ -710,20 +713,20 @@ describe("ADT Pulse Device Tests", function () {
   it("Should test device method parameters", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Test method existence
-    assert.ok(typeof testAlarm.configure === 'function');
-    assert.ok(typeof testAlarm.login === 'function');
-    assert.ok(typeof testAlarm.logout === 'function');
-    assert.ok(typeof testAlarm.updateAll === 'function');
-    assert.ok(typeof testAlarm.pulse === 'function');
-    assert.ok(typeof testAlarm.sync === 'function');
+    assert.ok(typeof testAlarm.configure === "function");
+    assert.ok(typeof testAlarm.login === "function");
+    assert.ok(typeof testAlarm.logout === "function");
+    assert.ok(typeof testAlarm.updateAll === "function");
+    assert.ok(typeof testAlarm.pulse === "function");
+    assert.ok(typeof testAlarm.sync === "function");
   });
 
   it("Should handle device URL configurations", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Test URL properties
     assert.ok(testAlarm.config.baseUrl);
     assert.ok(testAlarm.config.initialURI);
@@ -736,16 +739,16 @@ describe("ADT Pulse Device Tests", function () {
   it("Should test configure method", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Test configure with options
     const options = {
       username: "newuser",
       password: "newpass",
-      fingerprint: "newfingerprint"
+      fingerprint: "newfingerprint",
     };
-    
+
     testAlarm.configure(options);
-    
+
     assert.strictEqual(testAlarm.config.username, "newuser");
     assert.strictEqual(testAlarm.config.password, "newpass");
     assert.strictEqual(testAlarm.config.fingerprint, "newfingerprint");
@@ -754,7 +757,7 @@ describe("ADT Pulse Device Tests", function () {
   it("Should handle updateAll method", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Mock the required endpoints for updateAll
     nock("https://portal.adtpulse.com")
       .get(/.*summary.*/)
@@ -766,16 +769,18 @@ describe("ADT Pulse Device Tests", function () {
 
     testAlarm.authenticated = true;
     testAlarm.config.prefix = "/myhome/test";
-    
+
     // Test updateAll - it may not return a promise
     try {
       const result = testAlarm.updateAll();
-      if (result && typeof result.then === 'function') {
-        return result.then(() => {
-          assert.ok(true);
-        }).catch(() => {
-          assert.ok(true); // Error is acceptable
-        });
+      if (result && typeof result.then === "function") {
+        return result
+          .then(() => {
+            assert.ok(true);
+          })
+          .catch(() => {
+            assert.ok(true); // Error is acceptable
+          });
       } else {
         assert.ok(true); // Method executed
       }
@@ -787,18 +792,18 @@ describe("ADT Pulse Device Tests", function () {
   it("Should test pulse method with uid", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Mock login for pulse method
     nock("https://portal.adtpulse.com")
       .get("/")
       .reply(302, "", {
-        Location: "https://portal.adtpulse.com/myhome/test/access/signin.jsp"
+        Location: "https://portal.adtpulse.com/myhome/test/access/signin.jsp",
       })
       .get(/.*signin.*/)
       .reply(200, "<html>Login page</html>")
       .post(/.*signin.*/)
       .reply(302, "", {
-        Location: "https://portal.adtpulse.com/myhome/test/summary/summary.jsp"
+        Location: "https://portal.adtpulse.com/myhome/test/summary/summary.jsp",
       })
       .get(/.*summary.*/)
       .reply(200, "<html>Summary page</html>");
@@ -806,12 +811,14 @@ describe("ADT Pulse Device Tests", function () {
     // Test pulse method - it may not return a promise
     try {
       const result = testAlarm.pulse("test-uid");
-      if (result && typeof result.then === 'function') {
-        return result.then(() => {
-          assert.ok(true);
-        }).catch(() => {
-          assert.ok(true); // Error is acceptable
-        });
+      if (result && typeof result.then === "function") {
+        return result
+          .then(() => {
+            assert.ok(true);
+          })
+          .catch(() => {
+            assert.ok(true); // Error is acceptable
+          });
       } else {
         assert.ok(true); // Method executed
       }
@@ -827,7 +834,7 @@ describe("ADT Pulse Configuration Tests", function () {
   it("Should handle null values in constructor", function () {
     const nullAlarm = new pulse(null, null, null);
     clearInterval(nullAlarm.pulseInterval);
-    
+
     // Should not crash
     assert.ok(nullAlarm.config !== undefined);
   });
@@ -835,7 +842,7 @@ describe("ADT Pulse Configuration Tests", function () {
   it("Should handle undefined values in constructor", function () {
     const undefinedAlarm = new pulse(undefined, undefined, undefined);
     clearInterval(undefinedAlarm.pulseInterval);
-    
+
     // Should not crash
     assert.ok(undefinedAlarm.config !== undefined);
   });
@@ -843,7 +850,7 @@ describe("ADT Pulse Configuration Tests", function () {
   it("Should create valid config object", function () {
     const validAlarm = new pulse("user", "pass", "fp");
     clearInterval(validAlarm.pulseInterval);
-    
+
     assert.strictEqual(validAlarm.config.username, "user");
     assert.strictEqual(validAlarm.config.password, "pass");
     assert.strictEqual(validAlarm.config.fingerprint, "fp");
@@ -852,7 +859,7 @@ describe("ADT Pulse Configuration Tests", function () {
   it("Should handle zone status JSON parsing errors", function (done) {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Mock zone status with invalid JSON
     nock("https://portal.adtpulse.com")
       .get(/.*orb.*/)
@@ -860,8 +867,9 @@ describe("ADT Pulse Configuration Tests", function () {
 
     testAlarm.authenticated = true;
     testAlarm.config.prefix = "/myhome/test";
-    
-    testAlarm.getZoneStatusOrb()
+
+    testAlarm
+      .getZoneStatusOrb()
       .then(() => {
         // Should handle gracefully
         done();
@@ -875,7 +883,7 @@ describe("ADT Pulse Configuration Tests", function () {
   it("Should handle device status network errors", function (done) {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Mock network error for device status
     nock("https://portal.adtpulse.com")
       .get(/.*currentStates.*/)
@@ -883,8 +891,9 @@ describe("ADT Pulse Configuration Tests", function () {
 
     testAlarm.authenticated = true;
     testAlarm.config.prefix = "/myhome/test";
-    
-    testAlarm.getDeviceStatus()
+
+    testAlarm
+      .getDeviceStatus()
       .then(() => {
         done();
       })
@@ -897,12 +906,12 @@ describe("ADT Pulse Configuration Tests", function () {
   it("Should handle sync method", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
-    
+
     // Mock sync login flow
     nock("https://portal.adtpulse.com")
       .get("/")
       .reply(302, "", {
-        Location: "https://portal.adtpulse.com/myhome/test/access/signin.jsp"
+        Location: "https://portal.adtpulse.com/myhome/test/access/signin.jsp",
       })
       .get(/.*signin.*/)
       .reply(200, "<html>Login page</html>")
@@ -912,12 +921,14 @@ describe("ADT Pulse Configuration Tests", function () {
     // Test sync method - it may not return a promise
     try {
       const result = testAlarm.sync();
-      if (result && typeof result.then === 'function') {
-        return result.then(() => {
-          assert.ok(true);
-        }).catch(() => {
-          assert.ok(true); // Error is acceptable
-        });
+      if (result && typeof result.then === "function") {
+        return result
+          .then(() => {
+            assert.ok(true);
+          })
+          .catch(() => {
+            assert.ok(true); // Error is acceptable
+          });
       } else {
         assert.ok(true); // Method executed
       }

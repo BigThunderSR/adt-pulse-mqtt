@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.1.0 - Modernization & Optimization Release
+
+### 🔧 Infrastructure Improvements
+
+- **Testing Framework**: Migrated from `nyc` to modern `c8` coverage tool
+- **Coverage Engine**: Now uses Node.js built-in V8 coverage for faster generation without runtime instrumentation overhead
+- **Dependency Cleanup**: Removed unnecessary transitive dependencies and resolved deprecation warnings
+
 ## 4.0.0 - Major Release (2025-08-18)
 
 ### 🚀 Breaking Changes
@@ -11,9 +19,9 @@
 
 ### ✨ New Features
 
-- **Enhanced Security**: Added `.env` file support for secure credential management
+- **Enhanced Local Testing Capability**: Added `.env` file support for simpler local testing capabilities
 - **Configuration Templates**: Added `local-config.json.example` and `.env.example` files
-- **Comprehensive Documentation**: Added `LOCAL_TESTING.md` and `AXIOS_MIGRATION.md` guides
+- **Updated Documentation**: Added `LOCAL_TESTING.md` and `AXIOS_MIGRATION.md` guides
 
 ### 🛡️ Critical Bug Fixes
 
@@ -25,16 +33,14 @@
 ### 📈 Improvements
 
 - **Test Coverage**: Increased from 67% to 82.06% (+15% improvement)
-- **Performance**: Tests now run in ~360ms (previously 20+ seconds)
 - **Dependencies**: Updated to latest secure versions (axios 1.11.0, tough-cookie 6.0.0)
-- **Build Infrastructure**: Updated to Alpine Linux 3.20 for modern container builds
 
 ### 🔧 Technical Details
 
-- **Node.js**: Requires Node.js >= 20 (updated from >= 18)
+- **Node.js**: Requires Node.js >= 20
 - **HTTP Client**: Complete migration from `request` to `axios` with cookie support
-- **Error Handling**: Bulletproof promise chains prevent application crashes
-- **Security Audit**: Zero vulnerabilities with updated dependency tree
+- **Error Handling**: Improved promise chains prevent application crashes
+- **Security Audit**: Zero known vulnerabilities at the time of release with updated dependency tree
 
 ### 🔄 Backwards Compatibility
 
@@ -45,13 +51,12 @@
 
 ### 📋 Migration Guide
 
-- **Optional**: Migrate to `.env` file for better security
+- **Optional**: Migrate to `.env` file for simplified local testing
 - **Recommended**: Review `LOCAL_TESTING.md` for new development features
-- **Automatic**: Dependencies updated during container rebuild
 
 ### 🎯 Impact
 
-- **Reliability**: Eliminates application crashes from network timeouts
+- **Reliability**: Minimizes application crashes from network timeouts
 - **Security**: Modern dependencies with active security support
 - **Maintainability**: Cleaner codebase with comprehensive error handling
 - **Development**: Enhanced testing framework and documentation
