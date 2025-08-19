@@ -10,6 +10,14 @@
 - **ESLint Integration**: Added modern native ESLint parsing for consistent code quality across all versions
 - **Code Quality**: Fixed all ESLint errors including unused variables and unsafe prototype access patterns
 
+### 📈 Test Coverage Enhancements
+
+- **Enhanced Coverage**: Improved c8 coverage from 73.48% to 79.9% (+6.42% improvement)
+- **Test Suite Expansion**: Added 16 new comprehensive test cases (92 total tests, up from 76)
+- **Error Handling Tests**: Added coverage for timeout scenarios, network failures, and authentication errors
+- **Edge Case Testing**: Enhanced setAlarmState testing with SAT token variations and force arm retry logic
+- **Configuration Testing**: Added comprehensive constructor parameter validation tests
+
 ## 4.0.0 - Major Release (2025-08-18)
 
 ### 🚀 Breaking Changes

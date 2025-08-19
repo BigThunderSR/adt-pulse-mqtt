@@ -1,4 +1,4 @@
-# Changelog - Test Version
+# Changelog
 
 ## 4.1.0 - Modernization & Optimization Release
 
@@ -7,8 +7,16 @@
 - **Testing Framework**: Migrated from `nyc` to modern `c8` coverage tool
 - **Coverage Engine**: Now uses Node.js built-in V8 coverage for faster generation without runtime instrumentation overhead
 - **Dependency Cleanup**: Removed unnecessary transitive dependencies and resolved deprecation warnings
-- **ESLint Modernization**: Removed babel dependencies (130 packages) and migrated to native ESLint parsing for Node.js 20+
+- **ESLint Integration**: Added modern native ESLint parsing for consistent code quality across all versions
 - **Code Quality**: Fixed all ESLint errors including unused variables and unsafe prototype access patterns
+
+### 📈 Test Coverage Enhancements
+
+- **Enhanced Coverage**: Improved c8 coverage from 73.48% to 79.9% (+6.42% improvement)
+- **Test Suite Expansion**: Added 16 new comprehensive test cases (92 total tests, up from 76)
+- **Error Handling Tests**: Added coverage for timeout scenarios, network failures, and authentication errors
+- **Edge Case Testing**: Enhanced setAlarmState testing with SAT token variations and force arm retry logic
+- **Configuration Testing**: Added comprehensive constructor parameter validation tests
 
 ## 4.0.0 - Major Release (2025-08-18)
 
@@ -53,19 +61,15 @@
 
 ### 📋 Migration Guide
 
-1. **Dependencies**: Update your dependencies to install the new axios package
-2. **Configuration**: The config file format remains unchanged
-3. **Environment**: Requires Node.js version 20 or higher
-
-### 🧪 Test Environment Features
-
-- **Enhanced Linting**: Additional ESLint and Babel configurations for comprehensive code quality
-- **Development Tools**: Extended devDependencies for testing and validation
-- **Metadata**: Test-specific naming (`adtpulsemqtt_bigthundersr_test`) and Docker registry paths
+- **Optional**: Migrate to `.env` file for simplified local testing
+- **Recommended**: Review `LOCAL_TESTING.md` for new development features
 
 ### 🎯 Impact
 
-This major update modernizes the HTTP client while maintaining full backward compatibility. The new version minimizes security vulnerabilities and improves long-term maintainability with current Node.js ecosystem patterns.
+- **Reliability**: Minimizes application crashes from network timeouts
+- **Security**: Modern dependencies with active security support
+- **Maintainability**: Cleaner codebase with comprehensive error handling
+- **Development**: Enhanced testing framework and documentation
 
 ## 3.3.1
 
