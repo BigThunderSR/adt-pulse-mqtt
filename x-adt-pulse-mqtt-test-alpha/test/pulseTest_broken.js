@@ -494,50 +494,86 @@ describe("ADT Pulse Error Handling Tests", function () {
     nock.cleanAll();
   });
 
-  it("Should handle authentication gracefully", function (done) {
-    this.timeout(5000);
-    
+  it("Should handle authentication failure gracefully", async function () {
     nock("https://portal.adtpulse.com")
       .get("/")
-      .reply(401, "Unauthorized");
-
-    testAlarm.login()
-      .then(() => {
-        done(); // Even if it succeeds, that's fine
+      .reply(302, "<html></html>", {
+        Location: "https://portal.adtpulse.com/myhome/22.0.0-233/access/signin.jsp",
       })
-      .catch((error) => {
-        done(); // Handling error gracefully is what we want
-      });
+      .get("/myhome/22.0.0-233/access/signin.jsp")
+      .reply(200, "<html><body>Login failed</body></html>")
+      .post("/myhome/22.0.0-233/access/signin.jsp")
+      .reply(200, "<html><body>Invalid credentials</body></html>");
+
+    try {
+      await testAlarm.pulse();
+      assert.fail("Should have thrown an error");
+    } catch (error) {
+      assert.ok(error.message.includes("Authentication") || error.message.includes("Could not parse"));
+    }
   });
 
-  it("Should handle network timeouts", function (done) {
-    this.timeout(3000);
-    
+  it("Should handle network errors during authentication", async function () {
     nock("https://portal.adtpulse.com")
       .get("/")
-      .delayConnection(2000)
-      .reply(200, "OK");
+      .replyWithError("Network error");
 
-    testAlarm.login()
-      .then(() => {
-        done();
-      })
-      .catch((error) => {
-        done(); // Timeout handling is acceptable
-      });
+    try {
+      await testAlarm.pulse();
+      assert.fail("Should have thrown an error");
+    } catch (error) {
+      assert.ok(error.message.includes("Network error") || error.message.includes("Authentication"));
+    }
   });
 
-  it("Should handle missing config gracefully", function () {
-    const emptyAlarm = new pulse("", "", "");
-    clearInterval(emptyAlarm.pulseInterval);
-    
-    assert.strictEqual(emptyAlarm.config.username, "");
-    assert.strictEqual(emptyAlarm.config.password, "");
-    assert.strictEqual(emptyAlarm.config.fingerprint, "");
+  it("Should handle malformed URI patterns in authentication", async function () {
+    nock("https://portal.adtpulse.com")
+      .get("/")
+      .reply(302, "<html></html>", {
+        Location: "https://portal.adtpulse.com/invalidpath/access/signin.jsp",
+      });
+
+    try {
+      await testAlarm.pulse();
+      assert.fail("Should have thrown an error");
+    } catch (error) {
+      assert.ok(error.message.includes("Failed to parse") || error.message.includes("Authentication"));
+    }
+  });
+
+  it("Should handle missing SAT token in zone status", async function () {
+    // Setup authenticated state
+    pulse.__set__("sat", "");
+    testAlarm.authenticated = true;
+    testAlarm.config.prefix = "/myhome/22.0.0-233";
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/22.0.0-233/ajax/orb.jsp")
+      .reply(200, '{"items": [{"name": "Test Zone"}]}'); // No SAT token
+
+    const result = await testAlarm.getZoneStatus(() => {});
+    assert.ok(result !== undefined); // Should not crash
+  });
+
+  it("Should handle JSON parsing errors in zone status", async function () {
+    testAlarm.authenticated = true;
+    testAlarm.config.prefix = "/myhome/22.0.0-233";
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/22.0.0-233/ajax/orb.jsp")
+      .reply(200, "Invalid JSON response");
+
+    try {
+      await testAlarm.getZoneStatus(() => {});
+      // Should handle gracefully and not crash
+      assert.ok(true);
+    } catch (error) {
+      assert.ok(error.message.includes("parse") || error.message.includes("JSON"));
+    }
   });
 });
 
-describe("ADT Pulse Device Tests", function () {
+describe("ADT Pulse Device Status Tests", function () {
   let pulse = rewire("../adt-pulse.js");
   let testAlarm;
 
@@ -552,74 +588,74 @@ describe("ADT Pulse Device Tests", function () {
     nock.cleanAll();
   });
 
-  it("Should handle device status requests", function (done) {
+  it("Should handle successful device status retrieval", async function () {
     nock("https://portal.adtpulse.com")
-      .get("/myhome/22.0.0-233/ajax/currentStates.jsp")
-      .reply(200, "<html><body><div>Test Device</div></body></html>");
-
-    testAlarm.getDeviceStatus()
-      .then((result) => {
-        done();
-      })
-      .catch((error) => {
-        done(); // Error handling is acceptable
+      .get("/myhome/22.0.0-233/summary/summary.jsp")
+      .reply(200, () => {
+        try {
+          return fs.readFileSync("./test/pages/otherdevices.jsp", "utf8");
+        } catch (e) {
+          return '<html><body><div class="devStatIcon">Device Test</div></body></html>';
+        }
       });
+
+    const devices = await testAlarm.getDeviceStatus();
+    assert.ok(Array.isArray(devices));
   });
 
-  it("Should handle zone status requests", function (done) {
+  it("Should handle network errors during device status retrieval", async function () {
     nock("https://portal.adtpulse.com")
-      .get("/myhome/22.0.0-233/ajax/orb.jsp")
-      .reply(200, '{"items": [{"name": "Test Zone"}]}');
+      .get("/myhome/22.0.0-233/summary/summary.jsp")
+      .replyWithError("Network timeout");
 
-    testAlarm.getZoneStatusOrb()
-      .then((result) => {
-        done();
-      })
-      .catch((error) => {
-        done(); // Error handling is acceptable
-      });
+    try {
+      await testAlarm.getDeviceStatus();
+      assert.ok(true); // Should handle gracefully
+    } catch (error) {
+      assert.ok(error.message.includes("Network") || error.message.includes("timeout"));
+    }
   });
 
-  it("Should handle empty responses", function (done) {
+  it("Should handle empty device status response", async function () {
     nock("https://portal.adtpulse.com")
-      .get("/myhome/22.0.0-233/ajax/currentStates.jsp")
-      .reply(200, "");
+      .get("/myhome/22.0.0-233/summary/summary.jsp")
+      .reply(200, "<html><body>No devices found</body></html>");
 
-    testAlarm.getDeviceStatus()
-      .then((result) => {
-        done();
-      })
-      .catch((error) => {
-        done(); // Error handling is acceptable
-      });
+    const devices = await testAlarm.getDeviceStatus();
+    assert.ok(Array.isArray(devices));
+    assert.strictEqual(devices.length, 0);
   });
 });
 
-describe("ADT Pulse Configuration Tests", function () {
+describe("ADT Pulse Configuration Edge Cases", function () {
   let pulse = rewire("../adt-pulse.js");
 
-  it("Should handle null values in constructor", function () {
-    const nullAlarm = new pulse(null, null, null);
-    clearInterval(nullAlarm.pulseInterval);
+  it("Should handle initialization with empty credentials", function () {
+    const testAlarm = new pulse("", "", "");
+    clearInterval(testAlarm.pulseInterval);
     
-    // Should not crash
-    assert.ok(nullAlarm.config !== undefined);
+    assert.strictEqual(testAlarm.config.username, "");
+    assert.strictEqual(testAlarm.config.password, "");
+    assert.strictEqual(testAlarm.config.fingerprint, "");
   });
 
-  it("Should handle undefined values in constructor", function () {
-    const undefinedAlarm = new pulse(undefined, undefined, undefined);
-    clearInterval(undefinedAlarm.pulseInterval);
+  it("Should handle initialization with null credentials", function () {
+    const testAlarm = new pulse(null, null, null);
+    clearInterval(testAlarm.pulseInterval);
     
-    // Should not crash
-    assert.ok(undefinedAlarm.config !== undefined);
+    // Should handle null values gracefully
+    assert.ok(testAlarm.config.username !== undefined);
+    assert.ok(testAlarm.config.password !== undefined);
+    assert.ok(testAlarm.config.fingerprint !== undefined);
   });
 
-  it("Should create valid config object", function () {
-    const validAlarm = new pulse("user", "pass", "fp");
-    clearInterval(validAlarm.pulseInterval);
+  it("Should handle initialization with undefined credentials", function () {
+    const testAlarm = new pulse(undefined, undefined, undefined);
+    clearInterval(testAlarm.pulseInterval);
     
-    assert.strictEqual(validAlarm.config.username, "user");
-    assert.strictEqual(validAlarm.config.password, "pass");
-    assert.strictEqual(validAlarm.config.fingerprint, "fp");
+    // Should handle undefined values gracefully
+    assert.ok(testAlarm.config.username !== undefined);
+    assert.ok(testAlarm.config.password !== undefined);
+    assert.ok(testAlarm.config.fingerprint !== undefined);
   });
 });
