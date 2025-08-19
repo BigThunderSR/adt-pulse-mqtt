@@ -25,7 +25,7 @@
     "dotenv": "^17.2.1",
     "lodash": "^4.17.21",
     "mqtt": "^5.14.0",
-    "tough-cookie": "^5.0.5"
+    "tough-cookie": "^5.1.2"
   },
   "devDependencies": {
     "c8": "^10.1.3",
