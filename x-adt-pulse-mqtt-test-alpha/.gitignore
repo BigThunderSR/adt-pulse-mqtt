@@ -40,7 +40,7 @@ node_modules/
 
 # Local configuration (old format - keeping for backward compatibility)
 local-config.json
-# But allow the example file
+# But include the example file for reference
 !local-config.json.example
 
 # IDE files
