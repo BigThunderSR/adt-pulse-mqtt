@@ -1,6 +1,70 @@
 const Pulse = require("./adt-pulse.js");
 const mqtt = require("mqtt");
-var config = require("/data/options.json");
+const fs = require("fs");
+
+// Load environment variables from .env file (for local development)
+require('dotenv').config();
+
+// Configuration loading with priority:
+// 1. Environment variables (from .env file or system)
+// 2. Docker config file (/data/options.json)
+// 3. Local config file (legacy fallback)
+let config;
+
+function loadConfig() {
+  // First, try to load from environment variables
+  if (process.env.ADT_USERNAME && process.env.ADT_PASSWORD) {
+    console.log("Using configuration from environment variables (.env file)");
+    return {
+      ssl: process.env.SSL_ENABLED === 'true',
+      certfile: process.env.SSL_CERT_FILE || 'fullchain.pem',
+      keyfile: process.env.SSL_KEY_FILE || 'privkey.pem',
+      pulse_login: {
+        username: process.env.ADT_USERNAME,
+        password: process.env.ADT_PASSWORD,
+        fingerprint: process.env.ADT_FINGERPRINT || ''
+      },
+      mqtt_host: process.env.MQTT_HOST || 'localhost',
+      mqtt_url: process.env.MQTT_URL || '',
+      mqtt_connect_options: {
+        username: process.env.MQTT_USERNAME || '',
+        password: process.env.MQTT_PASSWORD || ''
+      },
+      alarm_state_topic: process.env.ALARM_STATE_TOPIC || 'home/alarm/state',
+      alarm_command_topic: process.env.ALARM_COMMAND_TOPIC || 'home/alarm/cmd',
+      zone_state_topic: process.env.ZONE_STATE_TOPIC || 'adt/zone',
+      smartthings_topic: process.env.SMARTTHINGS_TOPIC || 'smartthings',
+      smartthings: process.env.SMARTTHINGS_ENABLED === 'true'
+    };
+  }
+
+  // Second, try Docker config
+  try {
+    const dockerConfig = require("/data/options.json");
+    console.log("Using Docker configuration from /data/options.json");
+    return dockerConfig;
+  } catch (err) {
+    // Third, try legacy local config
+    try {
+      const localConfig = require("./local-config.json");
+      console.log("Using legacy local configuration from ./local-config.json");
+      return localConfig;
+    } catch (localErr) {
+      console.error("❌ Could not find configuration!");
+      console.error("");
+      console.error("For local development:");
+      console.error("  1. Copy .env.example to .env");
+      console.error("  2. Edit .env with your ADT Pulse and MQTT settings");
+      console.error("");
+      console.error("For Docker deployment:");
+      console.error("  Mount your config to /data/options.json");
+      console.error("");
+      process.exit(1);
+    }
+  }
+}
+
+config = loadConfig();
 var client;
 
 var myAlarm = new Pulse(
@@ -97,7 +161,13 @@ client.on("message", function (topic, message) {
     return;
   }
 
-  myAlarm.setAlarmState(action);
+  myAlarm.setAlarmState(action)
+    .then((result) => {
+      console.log("Alarm state change successful");
+    })
+    .catch((error) => {
+      console.error("Alarm state change failed:", error.message);
+    });
 });
 
 // Register Callbacks:

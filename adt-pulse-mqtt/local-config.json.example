@@ -1,0 +1,24 @@
+{
+  "_comment": "This is an example configuration file for ADT Pulse MQTT Bridge",
+  "_comment2": "Copy this file to 'local-config.json' and update with your actual credentials",
+  "_comment3": "Alternative: Use .env file for better security (see .env.example)",
+  "ssl": false,
+  "certfile": "fullchain.pem",
+  "keyfile": "privkey.pem",
+  "pulse_login": {
+    "username": "your_adt_username_here",
+    "password": "your_adt_password_here",
+    "fingerprint": "your_device_fingerprint_here"
+  },
+  "mqtt_host": "localhost",
+  "mqtt_url": "",
+  "mqtt_connect_options": {
+    "username": "your_mqtt_username_here",
+    "password": "your_mqtt_password_here"
+  },
+  "alarm_state_topic": "home/alarm/state",
+  "alarm_command_topic": "home/alarm/cmd",
+  "zone_state_topic": "adt/zone",
+  "smartthings_topic": "smartthings",
+  "smartthings": false
+}
