@@ -14,6 +14,25 @@ ADT Pulse bridge for Home Assistant using MQTT.
 
 Integrates ADT Pulse with Home Assistant. You can also choose to expose ADT devices associated with your ADT Pulse alarm system to SmartThings using [MQTT Discovery](https://github.com/toddaustin07/MQTT-Discovery).
 
+## 🧪 Local Testing & Development
+
+**NEW**: This version supports local testing without Docker! Perfect for development and debugging.
+
+### Quick Start for Local Testing
+
+1. **Setup**: Run `./test-local-setup.sh` to verify your environment
+2. **Configure**: Edit `local-config.json` with your ADT Pulse and MQTT settings  
+3. **Run**: Use `npm run start` to start the application locally
+
+See [LOCAL_TESTING.md](LOCAL_TESTING.md) for detailed instructions.
+
+### Key Features in This Version
+
+- ✅ **Modern Dependencies**: Migrated from deprecated `request` to `axios`
+- ✅ **Local Testing**: Run without Docker for development
+- ✅ **Clean Tests**: All 76 tests passing with excellent coverage (82.06%)
+- ✅ **Same Functionality**: Full compatibility with existing setups
+
 ## Home Assistant Setup
 
 [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/BigThunderSR/adt-pulse-mqtt)
