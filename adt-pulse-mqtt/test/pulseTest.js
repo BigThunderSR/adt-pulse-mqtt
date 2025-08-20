@@ -1400,32 +1400,32 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
 describe("ADT Pulse Server Configuration Logic Tests", function () {
   it("Should prioritize environment variables over other config sources", function () {
     // Test the logic without actually requiring server.js
-    const testConfig = function(hasEnvVars, hasDockerConfig, hasLocalConfig) {
+    const testConfig = function (hasEnvVars, hasDockerConfig, hasLocalConfig) {
       if (hasEnvVars) {
         return {
           source: "environment",
           pulse_login: {
             username: "env_user",
             password: "env_pass",
-            fingerprint: "env_finger"
+            fingerprint: "env_finger",
           },
-          mqtt_host: "env.mqtt.com"
+          mqtt_host: "env.mqtt.com",
         };
       } else if (hasDockerConfig) {
         return {
           source: "docker",
           pulse_login: {
             username: "docker_user",
-            password: "docker_pass"
-          }
+            password: "docker_pass",
+          },
         };
       } else if (hasLocalConfig) {
         return {
           source: "local",
           pulse_login: {
             username: "local_user",
-            password: "local_pass"
-          }
+            password: "local_pass",
+          },
         };
       } else {
         throw new Error("No configuration found");
@@ -1452,7 +1452,7 @@ describe("ADT Pulse Server Configuration Logic Tests", function () {
   });
 
   it("Should apply correct default values for missing environment variables", function () {
-    const applyDefaults = function(envVars) {
+    const applyDefaults = function (envVars) {
       return {
         ssl: envVars.SSL_ENABLED === "true",
         certfile: envVars.SSL_CERT_FILE || "fullchain.pem",
@@ -1479,7 +1479,7 @@ describe("ADT Pulse Server Configuration Logic Tests", function () {
     // Test with minimal environment variables
     const minConfig = applyDefaults({
       ADT_USERNAME: "testuser",
-      ADT_PASSWORD: "testpass"
+      ADT_PASSWORD: "testpass",
     });
 
     assert.strictEqual(minConfig.pulse_login.fingerprint, "");
@@ -1497,7 +1497,7 @@ describe("ADT Pulse Server Configuration Logic Tests", function () {
       MQTT_HOST: "custom.mqtt.com",
       SSL_ENABLED: "true",
       SMARTTHINGS_ENABLED: "true",
-      ALARM_STATE_TOPIC: "custom/alarm/state"
+      ALARM_STATE_TOPIC: "custom/alarm/state",
     });
 
     assert.strictEqual(fullConfig.pulse_login.fingerprint, "finger123");
@@ -1510,7 +1510,7 @@ describe("ADT Pulse Server Configuration Logic Tests", function () {
 
 describe("ADT Pulse Server MQTT Message Logic Tests", function () {
   it("Should map MQTT commands to correct alarm actions", function () {
-    const mapCommand = function(command, currentState) {
+    const mapCommand = function (command, currentState) {
       let prev_state = "disarmed";
       if (currentState === "armed_home") prev_state = "stay";
       if (currentState === "armed_away") prev_state = "away";
@@ -1546,7 +1546,7 @@ describe("ADT Pulse Server MQTT Message Logic Tests", function () {
   });
 
   it("Should map SmartThings commands correctly", function () {
-    const mapSmartThingsCommand = function(message) {
+    const mapSmartThingsCommand = function (message) {
       if (!message.includes("_push")) return null;
 
       switch (message) {
@@ -1571,7 +1571,7 @@ describe("ADT Pulse Server MQTT Message Logic Tests", function () {
 
 describe("ADT Pulse Server Status Mapping Tests", function () {
   it("Should map alarm statuses to MQTT and SmartThings values correctly", function () {
-    const mapAlarmStatus = function(status) {
+    const mapAlarmStatus = function (status) {
       let mqtt_state = "unknown";
       let sm_alarm_value = "off";
       const statusLower = status.toLowerCase();
@@ -1622,7 +1622,7 @@ describe("ADT Pulse Server Status Mapping Tests", function () {
   });
 
   it("Should map device types and states for SmartThings integration", function () {
-    const mapDeviceForSmartThings = function(device) {
+    const mapDeviceForSmartThings = function (device) {
       let sm_device_type = "contact";
       let sm_device_state = device.state === "devStatOK" ? "closed" : "open";
 
@@ -1637,14 +1637,14 @@ describe("ADT Pulse Server Status Mapping Tests", function () {
     // Test contact sensor
     const contactOK = mapDeviceForSmartThings({
       state: "devStatOK",
-      tags: ["sensor", "doorWindow"]
+      tags: ["sensor", "doorWindow"],
     });
     assert.strictEqual(contactOK.sm_device_type, "contact");
     assert.strictEqual(contactOK.sm_device_state, "closed");
 
     const contactOpen = mapDeviceForSmartThings({
       state: "devStatOpen",
-      tags: ["sensor", "doorWindow"]
+      tags: ["sensor", "doorWindow"],
     });
     assert.strictEqual(contactOpen.sm_device_type, "contact");
     assert.strictEqual(contactOpen.sm_device_state, "open");
@@ -1652,14 +1652,14 @@ describe("ADT Pulse Server Status Mapping Tests", function () {
     // Test motion sensor
     const motionOK = mapDeviceForSmartThings({
       state: "devStatOK",
-      tags: ["sensor", "motion"]
+      tags: ["sensor", "motion"],
     });
     assert.strictEqual(motionOK.sm_device_type, "motion");
     assert.strictEqual(motionOK.sm_device_state, "inactive");
 
     const motionActive = mapDeviceForSmartThings({
       state: "devStatTriggered",
-      tags: ["sensor", "motion"]
+      tags: ["sensor", "motion"],
     });
     assert.strictEqual(motionActive.sm_device_type, "motion");
     assert.strictEqual(motionActive.sm_device_state, "active");
@@ -1671,11 +1671,11 @@ describe("ADT Pulse Server Device Tracking Tests", function () {
     const devices = {};
     const baseTime = Date.now();
 
-    const shouldPublishUpdate = function(device) {
+    const shouldPublishUpdate = function (device) {
       const trackedDeviceId = `${device.id}/${device.name}`;
       const trackedDevice = devices[trackedDeviceId];
       const isUntrackedDevice = trackedDevice == null;
-      
+
       if (isUntrackedDevice || device.timestamp > trackedDevice.timestamp) {
         devices[trackedDeviceId] = device;
         return true;
@@ -1709,10 +1709,15 @@ describe("ADT Pulse Server Device Tracking Tests", function () {
   });
 
   it("Should generate correct MQTT topics for devices", function () {
-    const generateTopics = function(device, zoneStateTopic, smartthingsTopic, isSmartThingsEnabled) {
+    const generateTopics = function (
+      device,
+      zoneStateTopic,
+      smartthingsTopic,
+      isSmartThingsEnabled,
+    ) {
       const trackedDeviceId = `${device.id}/${device.name}`;
       const topics = {
-        zone_state: `${zoneStateTopic}/${device.name}/state`
+        zone_state: `${zoneStateTopic}/${device.name}/state`,
       };
 
       if (isSmartThingsEnabled) {
@@ -1731,26 +1736,53 @@ describe("ADT Pulse Server Device Tracking Tests", function () {
     const contactDevice = {
       id: "sensor-1",
       name: "Front Door",
-      tags: ["sensor", "doorWindow"]
+      tags: ["sensor", "doorWindow"],
     };
 
-    const topics = generateTopics(contactDevice, "adt/zone", "smartthings", true);
+    const topics = generateTopics(
+      contactDevice,
+      "adt/zone",
+      "smartthings",
+      true,
+    );
     assert.strictEqual(topics.zone_state, "adt/zone/Front Door/state");
-    assert.strictEqual(topics.smartthings_config, "smartthings/contact/sensor-1/Front Door/config");
-    assert.strictEqual(topics.smartthings_state, "smartthings/contact/sensor-1/Front Door/state");
+    assert.strictEqual(
+      topics.smartthings_config,
+      "smartthings/contact/sensor-1/Front Door/config",
+    );
+    assert.strictEqual(
+      topics.smartthings_state,
+      "smartthings/contact/sensor-1/Front Door/state",
+    );
 
     const motionDevice = {
       id: "sensor-2",
       name: "Living Room Motion",
-      tags: ["sensor", "motion"]
+      tags: ["sensor", "motion"],
     };
 
-    const motionTopics = generateTopics(motionDevice, "adt/zone", "smartthings", true);
-    assert.strictEqual(motionTopics.smartthings_config, "smartthings/motion/sensor-2/Living Room Motion/config");
+    const motionTopics = generateTopics(
+      motionDevice,
+      "adt/zone",
+      "smartthings",
+      true,
+    );
+    assert.strictEqual(
+      motionTopics.smartthings_config,
+      "smartthings/motion/sensor-2/Living Room Motion/config",
+    );
 
     // Test without SmartThings
-    const noSmartThingsTopics = generateTopics(contactDevice, "adt/zone", "smartthings", false);
-    assert.strictEqual(noSmartThingsTopics.zone_state, "adt/zone/Front Door/state");
+    const noSmartThingsTopics = generateTopics(
+      contactDevice,
+      "adt/zone",
+      "smartthings",
+      false,
+    );
+    assert.strictEqual(
+      noSmartThingsTopics.zone_state,
+      "adt/zone/Front Door/state",
+    );
     assert.ok(!noSmartThingsTopics.smartthings_config);
     assert.ok(!noSmartThingsTopics.smartthings_state);
   });
