@@ -41,7 +41,7 @@ jobs:
       - name: Get changed files
         id: changed_files
         #uses: jitterbit/get-changed-files@v1
-        uses: tj-actions/changed-files@v44
+        uses: tj-actions/changed-files@v46
 
       - name: Find add-on directories
         id: addons
