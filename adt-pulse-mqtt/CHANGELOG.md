@@ -27,7 +27,8 @@
 
 ### 📈 Test Suite Expansion
 
-- **Test Coverage**: Expanded test suite from 76 to 92 comprehensive test cases (+16 new tests)
+- **Test Coverage**: Expanded test suite from 76 to 100 comprehensive test cases (+24 new tests)
+- **Server Logic Testing**: Added 8 isolated server logic tests covering configuration, MQTT processing, and device tracking
 - **Error Handling Tests**: Added coverage for timeout scenarios, network failures, and authentication errors
 - **Edge Case Testing**: Enhanced setAlarmState testing with SAT token variations and force arm retry logic
 - **Configuration Testing**: Added comprehensive constructor parameter validation tests
@@ -67,41 +68,7 @@
 
 ### 4.1.0 & 4.0.0 - Consolidated into 5.0.0
 
-- All features and improvements from versions 4.0.0 and 4.1.0 have been consolidated into the comprehensive 5.0.0 release above
-- **Error Handling**: Added comprehensive `.catch()` handlers for all async operations
-- **Network Resilience**: Improved handling of network timeouts and connectivity issues
-- **Graceful Degradation**: Application continues running during network instability
-
-### 📈 Improvements
-
-- **Test Coverage**: Increased from 67% to 82.06% (+15% improvement)
-- **Dependencies**: Updated to latest secure versions (axios 1.11.0, tough-cookie 6.0.0)
-
-### 🔧 Technical Details
-
-- **Node.js**: Requires Node.js >= 20
-- **HTTP Client**: Complete migration from `request` to `axios` with cookie support
-- **Error Handling**: Improved promise chains prevent application crashes
-- **Security Audit**: Zero known vulnerabilities at the time of release with updated dependency tree
-
-### 🔄 Backwards Compatibility
-
-- ✅ **Configuration**: Still supports `local-config.json` alongside new `.env`
-- ✅ **MQTT Topics**: All existing integrations continue to work
-- ✅ **Docker**: Same Docker interface and environment variables
-- ✅ **External API**: No breaking changes for end users
-
-### 📋 Migration Guide
-
-- **Optional**: Migrate to `.env` file for simplified local testing
-- **Recommended**: Review `LOCAL_TESTING.md` for new development features
-
-### 🎯 Impact
-
-- **Reliability**: Minimizes application crashes from network timeouts
-- **Security**: Modern dependencies with active security support
-- **Maintainability**: Cleaner codebase with comprehensive error handling
-- **Development**: Enhanced testing framework and documentation
+All features and improvements from versions 4.0.0 and 4.1.0 have been consolidated into the comprehensive 5.0.0 release above.
 
 ## 3.4.0
 
