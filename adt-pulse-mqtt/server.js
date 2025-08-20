@@ -1,9 +1,8 @@
 const Pulse = require("./adt-pulse.js");
 const mqtt = require("mqtt");
-const fs = require("fs");
 
 // Load environment variables from .env file (for local development)
-require('dotenv').config();
+require("dotenv").config();
 
 // Configuration loading with priority:
 // 1. Environment variables (from .env file or system)
@@ -16,25 +15,25 @@ function loadConfig() {
   if (process.env.ADT_USERNAME && process.env.ADT_PASSWORD) {
     console.log("Using configuration from environment variables (.env file)");
     return {
-      ssl: process.env.SSL_ENABLED === 'true',
-      certfile: process.env.SSL_CERT_FILE || 'fullchain.pem',
-      keyfile: process.env.SSL_KEY_FILE || 'privkey.pem',
+      ssl: process.env.SSL_ENABLED === "true",
+      certfile: process.env.SSL_CERT_FILE || "fullchain.pem",
+      keyfile: process.env.SSL_KEY_FILE || "privkey.pem",
       pulse_login: {
         username: process.env.ADT_USERNAME,
         password: process.env.ADT_PASSWORD,
-        fingerprint: process.env.ADT_FINGERPRINT || ''
+        fingerprint: process.env.ADT_FINGERPRINT || "",
       },
-      mqtt_host: process.env.MQTT_HOST || 'localhost',
-      mqtt_url: process.env.MQTT_URL || '',
+      mqtt_host: process.env.MQTT_HOST || "localhost",
+      mqtt_url: process.env.MQTT_URL || "",
       mqtt_connect_options: {
-        username: process.env.MQTT_USERNAME || '',
-        password: process.env.MQTT_PASSWORD || ''
+        username: process.env.MQTT_USERNAME || "",
+        password: process.env.MQTT_PASSWORD || "",
       },
-      alarm_state_topic: process.env.ALARM_STATE_TOPIC || 'home/alarm/state',
-      alarm_command_topic: process.env.ALARM_COMMAND_TOPIC || 'home/alarm/cmd',
-      zone_state_topic: process.env.ZONE_STATE_TOPIC || 'adt/zone',
-      smartthings_topic: process.env.SMARTTHINGS_TOPIC || 'smartthings',
-      smartthings: process.env.SMARTTHINGS_ENABLED === 'true'
+      alarm_state_topic: process.env.ALARM_STATE_TOPIC || "home/alarm/state",
+      alarm_command_topic: process.env.ALARM_COMMAND_TOPIC || "home/alarm/cmd",
+      zone_state_topic: process.env.ZONE_STATE_TOPIC || "adt/zone",
+      smartthings_topic: process.env.SMARTTHINGS_TOPIC || "smartthings",
+      smartthings: process.env.SMARTTHINGS_ENABLED === "true",
     };
   }
 
@@ -43,13 +42,13 @@ function loadConfig() {
     const dockerConfig = require("/data/options.json");
     console.log("Using Docker configuration from /data/options.json");
     return dockerConfig;
-  } catch (err) {
+  } catch {
     // Third, try legacy local config
     try {
       const localConfig = require("./local-config.json");
       console.log("Using legacy local configuration from ./local-config.json");
       return localConfig;
-    } catch (localErr) {
+    } catch {
       console.error("❌ Could not find configuration!");
       console.error("");
       console.error("For local development:");
@@ -161,8 +160,9 @@ client.on("message", function (topic, message) {
     return;
   }
 
-  myAlarm.setAlarmState(action)
-    .then((result) => {
+  myAlarm
+    .setAlarmState(action)
+    .then(() => {
       console.log("Alarm state change successful");
     })
     .catch((error) => {

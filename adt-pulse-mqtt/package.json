@@ -1,6 +1,6 @@
 {
   "name": "pulse-adt-mqtt",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Home Assistant ADT Pulse Bridge using MQTT",
   "author": "ADT Pulse MQTT Team",
   "main": "server.js",
@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node server.js",
     "debug": "node --nolazy --inspect=9229 --trace-warnings server.js",
-    "test": "nyc --reporter=html --reporter=text --reporter=lcov mocha",
+    "test": "c8 --reporter=html --reporter=text --reporter=lcov mocha",
     "lint": "prettier --write ."
   },
   "repository": {
@@ -26,13 +26,16 @@
     "glob-parent": "^6.0.2",
     "lodash": "^4.17.21",
     "mqtt": "^5.14.0",
-    "tough-cookie": "^6.0.0"
+    "tough-cookie": "^5.1.2"
   },
   "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "eslint": "^9.33.0",
+    "globals": "^16.3.0",
     "mocha": "^11.7.1",
     "mocha-lcov-reporter": "^1.3.0",
     "nock": "^14.0.10",
-    "nyc": "^17.1.0",
+    "c8": "^10.1.3",
     "prettier": "^3.6.2",
     "rewire": "^9.0.1"
   }
