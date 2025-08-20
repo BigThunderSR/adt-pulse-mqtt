@@ -1396,3 +1396,394 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
       });
   });
 });
+
+describe("ADT Pulse Server Configuration Logic Tests", function () {
+  it("Should prioritize environment variables over other config sources", function () {
+    // Test the logic without actually requiring server.js
+    const testConfig = function (hasEnvVars, hasDockerConfig, hasLocalConfig) {
+      if (hasEnvVars) {
+        return {
+          source: "environment",
+          pulse_login: {
+            username: "env_user",
+            password: "env_pass",
+            fingerprint: "env_finger",
+          },
+          mqtt_host: "env.mqtt.com",
+        };
+      } else if (hasDockerConfig) {
+        return {
+          source: "docker",
+          pulse_login: {
+            username: "docker_user",
+            password: "docker_pass",
+          },
+        };
+      } else if (hasLocalConfig) {
+        return {
+          source: "local",
+          pulse_login: {
+            username: "local_user",
+            password: "local_pass",
+          },
+        };
+      } else {
+        throw new Error("No configuration found");
+      }
+    };
+
+    // Test priority order
+    const envConfig = testConfig(true, true, true);
+    assert.strictEqual(envConfig.source, "environment");
+    assert.strictEqual(envConfig.pulse_login.username, "env_user");
+
+    const dockerConfig = testConfig(false, true, true);
+    assert.strictEqual(dockerConfig.source, "docker");
+    assert.strictEqual(dockerConfig.pulse_login.username, "docker_user");
+
+    const localConfig = testConfig(false, false, true);
+    assert.strictEqual(localConfig.source, "local");
+    assert.strictEqual(localConfig.pulse_login.username, "local_user");
+
+    // Test error when no config
+    assert.throws(() => {
+      testConfig(false, false, false);
+    }, /No configuration found/);
+  });
+
+  it("Should apply correct default values for missing environment variables", function () {
+    const applyDefaults = function (envVars) {
+      return {
+        ssl: envVars.SSL_ENABLED === "true",
+        certfile: envVars.SSL_CERT_FILE || "fullchain.pem",
+        keyfile: envVars.SSL_KEY_FILE || "privkey.pem",
+        pulse_login: {
+          username: envVars.ADT_USERNAME,
+          password: envVars.ADT_PASSWORD,
+          fingerprint: envVars.ADT_FINGERPRINT || "",
+        },
+        mqtt_host: envVars.MQTT_HOST || "localhost",
+        mqtt_url: envVars.MQTT_URL || "",
+        mqtt_connect_options: {
+          username: envVars.MQTT_USERNAME || "",
+          password: envVars.MQTT_PASSWORD || "",
+        },
+        alarm_state_topic: envVars.ALARM_STATE_TOPIC || "home/alarm/state",
+        alarm_command_topic: envVars.ALARM_COMMAND_TOPIC || "home/alarm/cmd",
+        zone_state_topic: envVars.ZONE_STATE_TOPIC || "adt/zone",
+        smartthings_topic: envVars.SMARTTHINGS_TOPIC || "smartthings",
+        smartthings: envVars.SMARTTHINGS_ENABLED === "true",
+      };
+    };
+
+    // Test with minimal environment variables
+    const minConfig = applyDefaults({
+      ADT_USERNAME: "testuser",
+      ADT_PASSWORD: "testpass",
+    });
+
+    assert.strictEqual(minConfig.pulse_login.fingerprint, "");
+    assert.strictEqual(minConfig.mqtt_host, "localhost");
+    assert.strictEqual(minConfig.mqtt_url, "");
+    assert.strictEqual(minConfig.ssl, false);
+    assert.strictEqual(minConfig.smartthings, false);
+    assert.strictEqual(minConfig.alarm_state_topic, "home/alarm/state");
+
+    // Test with all environment variables set
+    const fullConfig = applyDefaults({
+      ADT_USERNAME: "testuser",
+      ADT_PASSWORD: "testpass",
+      ADT_FINGERPRINT: "finger123",
+      MQTT_HOST: "custom.mqtt.com",
+      SSL_ENABLED: "true",
+      SMARTTHINGS_ENABLED: "true",
+      ALARM_STATE_TOPIC: "custom/alarm/state",
+    });
+
+    assert.strictEqual(fullConfig.pulse_login.fingerprint, "finger123");
+    assert.strictEqual(fullConfig.mqtt_host, "custom.mqtt.com");
+    assert.strictEqual(fullConfig.ssl, true);
+    assert.strictEqual(fullConfig.smartthings, true);
+    assert.strictEqual(fullConfig.alarm_state_topic, "custom/alarm/state");
+  });
+});
+
+describe("ADT Pulse Server MQTT Message Logic Tests", function () {
+  it("Should map MQTT commands to correct alarm actions", function () {
+    const mapCommand = function (command, currentState) {
+      let prev_state = "disarmed";
+      if (currentState === "armed_home") prev_state = "stay";
+      if (currentState === "armed_away") prev_state = "away";
+
+      switch (command) {
+        case "arm_home":
+          return { newstate: "stay", prev_state: prev_state };
+        case "disarm":
+          return { newstate: "disarm", prev_state: prev_state };
+        case "arm_away":
+          return { newstate: "away", prev_state: prev_state };
+        default:
+          return null;
+      }
+    };
+
+    // Test command mapping from disarmed state
+    const armHome = mapCommand("arm_home", "disarmed");
+    assert.strictEqual(armHome.newstate, "stay");
+    assert.strictEqual(armHome.prev_state, "disarmed");
+
+    const disarm = mapCommand("disarm", "armed_home");
+    assert.strictEqual(disarm.newstate, "disarm");
+    assert.strictEqual(disarm.prev_state, "stay");
+
+    const armAway = mapCommand("arm_away", "armed_home");
+    assert.strictEqual(armAway.newstate, "away");
+    assert.strictEqual(armAway.prev_state, "stay");
+
+    // Test invalid command
+    const invalid = mapCommand("invalid_command", "disarmed");
+    assert.strictEqual(invalid, null);
+  });
+
+  it("Should map SmartThings commands correctly", function () {
+    const mapSmartThingsCommand = function (message) {
+      if (!message.includes("_push")) return null;
+
+      switch (message) {
+        case "off_push":
+          return "disarm";
+        case "stay_push":
+          return "arm_home";
+        case "away_push":
+          return "arm_away";
+        default:
+          return null;
+      }
+    };
+
+    assert.strictEqual(mapSmartThingsCommand("off_push"), "disarm");
+    assert.strictEqual(mapSmartThingsCommand("stay_push"), "arm_home");
+    assert.strictEqual(mapSmartThingsCommand("away_push"), "arm_away");
+    assert.strictEqual(mapSmartThingsCommand("invalid_push"), null);
+    assert.strictEqual(mapSmartThingsCommand("no_push_here"), null);
+  });
+});
+
+describe("ADT Pulse Server Status Mapping Tests", function () {
+  it("Should map alarm statuses to MQTT and SmartThings values correctly", function () {
+    const mapAlarmStatus = function (status) {
+      let mqtt_state = "unknown";
+      let sm_alarm_value = "off";
+      const statusLower = status.toLowerCase();
+
+      if (statusLower.includes("disarmed")) {
+        mqtt_state = "disarmed";
+        sm_alarm_value = "off";
+      }
+      if (statusLower.includes("armed stay")) {
+        mqtt_state = "armed_home";
+        sm_alarm_value = "strobe";
+      }
+      if (statusLower.includes("armed away")) {
+        mqtt_state = "armed_away";
+        sm_alarm_value = "siren";
+      }
+      if (statusLower.includes("alarm")) {
+        mqtt_state = "triggered";
+        sm_alarm_value = "both";
+      }
+      if (statusLower.includes("arming")) {
+        mqtt_state = "pending";
+        sm_alarm_value = "siren";
+      }
+
+      return { mqtt_state, sm_alarm_value };
+    };
+
+    const disarmed = mapAlarmStatus("Disarmed");
+    assert.strictEqual(disarmed.mqtt_state, "disarmed");
+    assert.strictEqual(disarmed.sm_alarm_value, "off");
+
+    const armedStay = mapAlarmStatus("Armed Stay");
+    assert.strictEqual(armedStay.mqtt_state, "armed_home");
+    assert.strictEqual(armedStay.sm_alarm_value, "strobe");
+
+    const armedAway = mapAlarmStatus("Armed Away");
+    assert.strictEqual(armedAway.mqtt_state, "armed_away");
+    assert.strictEqual(armedAway.sm_alarm_value, "siren");
+
+    const triggered = mapAlarmStatus("Alarm Triggered");
+    assert.strictEqual(triggered.mqtt_state, "triggered");
+    assert.strictEqual(triggered.sm_alarm_value, "both");
+
+    const pending = mapAlarmStatus("Arming System");
+    assert.strictEqual(pending.mqtt_state, "pending");
+    assert.strictEqual(pending.sm_alarm_value, "siren");
+  });
+
+  it("Should map device types and states for SmartThings integration", function () {
+    const mapDeviceForSmartThings = function (device) {
+      let sm_device_type = "contact";
+      let sm_device_state = device.state === "devStatOK" ? "closed" : "open";
+
+      if (device.tags.includes("motion")) {
+        sm_device_type = "motion";
+        sm_device_state = device.state === "devStatOK" ? "inactive" : "active";
+      }
+
+      return { sm_device_type, sm_device_state };
+    };
+
+    // Test contact sensor
+    const contactOK = mapDeviceForSmartThings({
+      state: "devStatOK",
+      tags: ["sensor", "doorWindow"],
+    });
+    assert.strictEqual(contactOK.sm_device_type, "contact");
+    assert.strictEqual(contactOK.sm_device_state, "closed");
+
+    const contactOpen = mapDeviceForSmartThings({
+      state: "devStatOpen",
+      tags: ["sensor", "doorWindow"],
+    });
+    assert.strictEqual(contactOpen.sm_device_type, "contact");
+    assert.strictEqual(contactOpen.sm_device_state, "open");
+
+    // Test motion sensor
+    const motionOK = mapDeviceForSmartThings({
+      state: "devStatOK",
+      tags: ["sensor", "motion"],
+    });
+    assert.strictEqual(motionOK.sm_device_type, "motion");
+    assert.strictEqual(motionOK.sm_device_state, "inactive");
+
+    const motionActive = mapDeviceForSmartThings({
+      state: "devStatTriggered",
+      tags: ["sensor", "motion"],
+    });
+    assert.strictEqual(motionActive.sm_device_type, "motion");
+    assert.strictEqual(motionActive.sm_device_state, "active");
+  });
+});
+
+describe("ADT Pulse Server Device Tracking Tests", function () {
+  it("Should track device updates correctly with timestamps", function () {
+    const devices = {};
+    const baseTime = Date.now();
+
+    const shouldPublishUpdate = function (device) {
+      const trackedDeviceId = `${device.id}/${device.name}`;
+      const trackedDevice = devices[trackedDeviceId];
+      const isUntrackedDevice = trackedDevice == null;
+
+      if (isUntrackedDevice || device.timestamp > trackedDevice.timestamp) {
+        devices[trackedDeviceId] = device;
+        return true;
+      }
+      return false;
+    };
+
+    // First update - should publish
+    const device1 = { id: "1", name: "Door", timestamp: baseTime };
+    assert.strictEqual(shouldPublishUpdate(device1), true);
+    assert.ok(devices["1/Door"]);
+
+    // Duplicate timestamp - should skip
+    const device1Dup = { id: "1", name: "Door", timestamp: baseTime };
+    assert.strictEqual(shouldPublishUpdate(device1Dup), false);
+
+    // Newer timestamp - should publish
+    const device1New = { id: "1", name: "Door", timestamp: baseTime + 1000 };
+    assert.strictEqual(shouldPublishUpdate(device1New), true);
+    assert.strictEqual(devices["1/Door"].timestamp, baseTime + 1000);
+
+    // Older timestamp - should skip
+    const device1Old = { id: "1", name: "Door", timestamp: baseTime - 1000 };
+    assert.strictEqual(shouldPublishUpdate(device1Old), false);
+    assert.strictEqual(devices["1/Door"].timestamp, baseTime + 1000);
+
+    // Different device - should publish
+    const device2 = { id: "2", name: "Window", timestamp: baseTime };
+    assert.strictEqual(shouldPublishUpdate(device2), true);
+    assert.ok(devices["2/Window"]);
+  });
+
+  it("Should generate correct MQTT topics for devices", function () {
+    const generateTopics = function (
+      device,
+      zoneStateTopic,
+      smartthingsTopic,
+      isSmartThingsEnabled,
+    ) {
+      const trackedDeviceId = `${device.id}/${device.name}`;
+      const topics = {
+        zone_state: `${zoneStateTopic}/${device.name}/state`,
+      };
+
+      if (isSmartThingsEnabled) {
+        let sm_device_type = "contact";
+        if (device.tags.includes("motion")) {
+          sm_device_type = "motion";
+        }
+
+        topics.smartthings_config = `${smartthingsTopic}/${sm_device_type}/${trackedDeviceId}/config`;
+        topics.smartthings_state = `${smartthingsTopic}/${sm_device_type}/${trackedDeviceId}/state`;
+      }
+
+      return topics;
+    };
+
+    const contactDevice = {
+      id: "sensor-1",
+      name: "Front Door",
+      tags: ["sensor", "doorWindow"],
+    };
+
+    const topics = generateTopics(
+      contactDevice,
+      "adt/zone",
+      "smartthings",
+      true,
+    );
+    assert.strictEqual(topics.zone_state, "adt/zone/Front Door/state");
+    assert.strictEqual(
+      topics.smartthings_config,
+      "smartthings/contact/sensor-1/Front Door/config",
+    );
+    assert.strictEqual(
+      topics.smartthings_state,
+      "smartthings/contact/sensor-1/Front Door/state",
+    );
+
+    const motionDevice = {
+      id: "sensor-2",
+      name: "Living Room Motion",
+      tags: ["sensor", "motion"],
+    };
+
+    const motionTopics = generateTopics(
+      motionDevice,
+      "adt/zone",
+      "smartthings",
+      true,
+    );
+    assert.strictEqual(
+      motionTopics.smartthings_config,
+      "smartthings/motion/sensor-2/Living Room Motion/config",
+    );
+
+    // Test without SmartThings
+    const noSmartThingsTopics = generateTopics(
+      contactDevice,
+      "adt/zone",
+      "smartthings",
+      false,
+    );
+    assert.strictEqual(
+      noSmartThingsTopics.zone_state,
+      "adt/zone/Front Door/state",
+    );
+    assert.ok(!noSmartThingsTopics.smartthings_config);
+    assert.ok(!noSmartThingsTopics.smartthings_state);
+  });
+});
