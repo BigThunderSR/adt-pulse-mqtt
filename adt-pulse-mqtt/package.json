@@ -29,7 +29,7 @@
     "tough-cookie": "^5.1.2"
   },
   "devDependencies": {
-    "@eslint/js": "^9.33.0",
+    "@eslint/js": "^9.34.0",
     "eslint": "^9.33.0",
     "globals": "^16.3.0",
     "mocha": "^11.7.1",
