@@ -21,4 +21,4 @@ docker build -f "Dockerfile-amd64" -t local/adt-pulse-mqtt-amd64 .
 
 docker build -f "Dockerfile-aarch64" -t local/adt-pulse-mqtt-aarch64 .
 
-docker build -f "Dockerfile-armhf" -t local/adt-pulse-mqtt-armhf .
+#docker build -f "Dockerfile-armhf" -t local/adt-pulse-mqtt-armhf .
