@@ -3,7 +3,7 @@ name: ADT Pulse MQTT - BigThunderSR Test - Alpha
 version: 5.0.0
 slug: x_adtpulsemqtt_bigthundersr_test_alpha
 description: ADT Pulse Bridge using MQTT - Alpha Test Version
-codenotary: bigthundersr@outlook.com
+#codenotary: bigthundersr@outlook.com
 url: https://github.com/BigThunderSR/adt-pulse-mqtt
 #startup: application
 #boot: auto
