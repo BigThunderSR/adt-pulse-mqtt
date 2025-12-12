@@ -1,0 +1,32 @@
+#include <tunables/global>
+
+profile adtpulsemqtt_bigthundersr_test flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Minimal AppArmor profile for ADT Pulse MQTT add-on
+  # This profile allows network access and file operations needed for the add-on
+  
+  # Capabilities needed for Node.js
+  capability,
+  
+  # Signals - for graceful shutdown handling
+  signal (send),
+  signal (receive),
+
+  # Network - required for ADT Pulse API and MQTT
+  network inet stream,
+  network inet dgram,
+  network inet6 stream,
+  network inet6 dgram,
+  network unix stream,
+  network unix dgram,
+
+  # File access
+  file,
+  
+  # All paths with full permissions
+  /** rwix,
+  
+  # Unix domain sockets for MQTT
+  unix,
+}

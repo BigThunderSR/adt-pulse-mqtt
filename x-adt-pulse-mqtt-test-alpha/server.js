@@ -311,3 +311,79 @@ myAlarm.onZoneUpdate(function (device) {
 });
 
 myAlarm.pulse();
+
+// Graceful shutdown handling
+let isShuttingDown = false;
+
+async function gracefulShutdown(signal) {
+  if (isShuttingDown) {
+    console.log(`Already shutting down, ignoring ${signal}`);
+    return;
+  }
+  isShuttingDown = true;
+
+  console.log(
+    "\x1b[33m%s\x1b[0m",
+    new Date().toLocaleString() + ` Received ${signal}, starting graceful shutdown...`,
+  );
+
+  // Stop the pulse sync interval
+  if (myAlarm.pulseInterval) {
+    clearInterval(myAlarm.pulseInterval);
+    console.log(new Date().toLocaleString() + " Stopped pulse sync interval");
+  }
+
+  // Logout from ADT Pulse
+  try {
+    if (myAlarm.authenticated) {
+      myAlarm.logout();
+      console.log(new Date().toLocaleString() + " Logged out from ADT Pulse");
+    }
+  } catch (err) {
+    console.error("Error during ADT Pulse logout:", err.message);
+  }
+
+  // Disconnect MQTT client
+  try {
+    if (client && client.connected) {
+      await new Promise((resolve) => {
+        client.end(false, {}, () => {
+          console.log(new Date().toLocaleString() + " MQTT client disconnected");
+          resolve();
+        });
+      });
+    }
+  } catch (err) {
+    console.error("Error during MQTT disconnect:", err.message);
+  }
+
+  console.log(
+    "\x1b[32m%s\x1b[0m",
+    new Date().toLocaleString() + " Graceful shutdown complete",
+  );
+  process.exit(0);
+}
+
+// Handle shutdown signals
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+// Handle uncaught errors to prevent silent crashes
+process.on("uncaughtException", (err) => {
+  console.error(
+    "\x1b[31m%s\x1b[0m",
+    new Date().toLocaleString() + " Uncaught exception:",
+    err,
+  );
+  gracefulShutdown("uncaughtException");
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error(
+    "\x1b[31m%s\x1b[0m",
+    new Date().toLocaleString() + " Unhandled rejection at:",
+    promise,
+    "reason:",
+    reason,
+  );
+});
