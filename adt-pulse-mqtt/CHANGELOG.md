@@ -1,5 +1,23 @@
 # Changelog
 
+## 5.0.1 - Graceful Shutdown Fix (2025-12-11)
+
+### 🐛 Bug Fixes
+
+- **Graceful Shutdown**: Added proper cleanup handling when addon is stopped
+  - Stops the 5-second pulse sync interval
+  - Logs out from ADT Pulse session cleanly
+  - Disconnects MQTT client properly
+  - Handles SIGTERM and SIGINT signals
+
+### 🔧 Technical Improvements
+
+- **Signal Handling**: Added process signal handlers in `server.js`
+- **Shell Script**: Updated `run.sh` to trap and forward signals to Node.js
+- **Error Handling**: Added handlers for uncaught exceptions and unhandled rejections
+
+---
+
 ## 5.0.0 - Complete Modernization Release (2025-08-19)
 
 ### 🚀 Major Breaking Changes
