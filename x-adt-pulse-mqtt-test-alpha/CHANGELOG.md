@@ -21,7 +21,7 @@
 
 ## 5.0.0 - Complete Modernization Release (2025-08-19)
 
-### � Major Breaking Changes
+### 🚀 Major Breaking Changes
 
 - **HTTP Client Migration**: Completely replaced deprecated `request` library with modern `axios`
 - **Testing Framework**: Migrated from `nyc` to modern `c8` coverage tool using Node.js built-in V8 coverage
