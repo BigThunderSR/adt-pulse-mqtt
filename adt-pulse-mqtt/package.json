@@ -25,7 +25,7 @@
     "dotenv": "^17.2.3",
     "glob-parent": "^6.0.2",
     "lodash": "^4.17.23",
-    "mqtt": "^5.14.1",
+    "mqtt": "^5.15.0",
     "tough-cookie": "^5.1.2"
   },
   "devDependencies": {
