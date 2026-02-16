@@ -726,8 +726,67 @@ module.exports = pulse;
                 reject(error);
               });
           } else {
-            // we failed?
-            // Arming Disarming states are captured. No need to call them failed.
+            // Check for stale session / access denied error page FIRST,
+            // before any other response handling. ADT returns an HTML page
+            // with "Unable to Proceed" or "do not have access" when the
+            // session has expired or the SAT token is stale.
+            var isStaleSession =
+              typeof response.data === "string" &&
+              (response.data.includes("Unable to Proceed") ||
+                response.data.includes(
+                  "do not have access to the requested",
+                ) ||
+                response.data.includes("signin.jsp"));
+
+            if (isStaleSession && !action.isRetry) {
+              console.log(
+                "\x1b[33m%s\x1b[0m",
+                new Date().toLocaleString() +
+                  " Pulse.setAlarmState: Stale session detected. Re-authenticating and retrying once.",
+              );
+              that.authenticated = false;
+              sat = "";
+              action.isRetry = true;
+              that
+                .login()
+                .then(function () {
+                  // Fetch zone status to get a fresh SAT token
+                  return that.getZoneStatusOrb();
+                })
+                .then(function () {
+                  return that.setAlarmState(action);
+                })
+                .then(function (result) {
+                  resolve(result);
+                })
+                .catch(function (retryError) {
+                  console.log(
+                    "\x1b[31m%s\x1b[0m",
+                    new Date().toLocaleString() +
+                      " Pulse.setAlarmState: Retry after re-auth failed - " +
+                      retryError.message,
+                  );
+                  reject(retryError);
+                });
+              return;
+            }
+
+            if (isStaleSession && action.isRetry) {
+              // Already retried re-auth once, still getting session error
+              console.log(
+                "\x1b[31m%s\x1b[0m",
+                new Date().toLocaleString() +
+                  " Pulse.setAlarmState: Stale session persists after re-auth retry.",
+              );
+              reject(
+                new Error(
+                  "Alarm state change failed - session expired after re-authentication",
+                ),
+              );
+              return;
+            }
+
+            // Arming/Disarming states are captured. No need to call them failed.
             if (
               !action.isForced &&
               !response.data.includes("Disarming") &&
