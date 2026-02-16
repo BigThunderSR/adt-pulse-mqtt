@@ -21,7 +21,7 @@
   "dependencies": {
     "axios": "^1.13.5",
     "axios-cookiejar-support": "^5.0.5",
-    "cheerio": "^1.1.2",
+    "cheerio": "^1.2.0",
     "dotenv": "^17.3.1",
     "lodash": "^4.17.23",
     "mqtt": "^5.15.0",
