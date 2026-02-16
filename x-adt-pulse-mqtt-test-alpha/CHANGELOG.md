@@ -1,5 +1,17 @@
 # Changelog
 
+## 5.0.2 - Stale Session Retry Fix (2026-02-15)
+
+### 🐛 Bug Fixes
+
+- **Stale Session Recovery**: Added automatic re-authentication and retry when `setAlarmState` encounters a stale session or expired SAT token
+  - Detects ADT "Unable to Proceed" / "do not have access" error pages
+  - Automatically re-authenticates and fetches a fresh SAT token
+  - Retries the alarm state change once after successful re-auth
+  - Provides clear error messaging if retry also fails
+
+---
+
 ## 5.0.1 - Graceful Shutdown Fix (2025-12-11)
 
 ### 🐛 Bug Fixes
