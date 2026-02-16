@@ -1,5 +1,23 @@
 # Changelog
 
+## 5.0.2 - Stale Session Retry Fix (2026-02-15)
+
+### 🐛 Bug Fixes
+
+- **Stale Session Recovery**: `setAlarmState` now automatically re-authenticates and retries once when ADT Pulse returns an expired session error page ("Unable to Proceed" / "do not have access")
+  - Detects stale session by checking for known ADT error page strings
+  - Invalidates current session and clears SAT token
+  - Re-authenticates via `login()` and fetches fresh SAT token via `getZoneStatusOrb()`
+  - Retries the alarm state change once (`isRetry` flag prevents infinite loops)
+  - Previously, the command would silently fail and require manual resend
+
+### 🔧 Technical Improvements
+
+- **Stale session check runs before the `isForced` gate** — covers both normal and force-arm scenarios
+- **Explicit error on persistent failure** — if re-auth retry still fails, rejects with a descriptive error message instead of a generic one
+
+---
+
 ## 5.0.1 - Graceful Shutdown Fix (2025-12-11)
 
 ### 🐛 Bug Fixes
