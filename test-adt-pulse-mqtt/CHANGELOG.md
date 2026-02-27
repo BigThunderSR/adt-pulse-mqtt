@@ -2,7 +2,7 @@
 
 ## 5.1.1 - SmartThings Topic Lifecycle Fix (2026-02-26)
 
-### 🐛 SmartThings Topic Fixes
+### 🐛 Bug Fixes
 
 - **Config Topics**: Config topics are now published on every zone update
   (not just first device discovery), ensuring reconnecting subscribers
