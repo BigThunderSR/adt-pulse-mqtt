@@ -1,6 +1,6 @@
 ---
 name: ADT Pulse MQTT - BigThunderSR
-version: 5.1.0
+version: 5.1.1
 slug: adtpulsemqtt_bigthundersr
 description: ADT Pulse Bridge using MQTT
 #codenotary: bigthundersr@outlook.com

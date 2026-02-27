@@ -1,5 +1,23 @@
 # Changelog
 
+## 5.1.1 - SmartThings Topic Lifecycle Fix (2026-02-26)
+
+### 🐛 SmartThings Topic Fixes
+
+- **Config Topics**: Config topics are now published on every zone update
+  (not just first device discovery), ensuring reconnecting subscribers
+  rediscover devices
+- **Config Retain**: Config topics now use `retain: true` so the MQTT
+  broker stores them for future subscribers, matching the non-SmartThings
+  `alarm_state_topic` behavior
+- **Alarm Config Retain**: SmartThings alarm config topic now uses
+  `retain: true`, consistent with the non-SmartThings alarm state topic
+- **Shutdown Cleanup**: Graceful shutdown now publishes empty retained
+  messages to all SmartThings config topics (alarm config + per-device
+  configs) before disconnecting, preventing stale devices
+
+---
+
 ## 5.1.0 - Alpine & Node.js Upgrade (2026-02-26)
 
 ### ⬆️ Infrastructure
