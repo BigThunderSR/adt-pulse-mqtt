@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.1.0 - Alpine & Node.js Upgrade (2026-02-26)
+
+### ⬆️ Infrastructure
+
+- **Base Image**: Upgraded balenalib base images from Alpine 3.20 to Alpine 3.21
+- **Node.js**: Upgraded from Node.js 20.15.1 to Node.js 22.15.1 (LTS)
+- **Engine Requirement**: Updated minimum Node.js version to >= 22
+
+---
+
 ## 5.0.2 - Stale Session Retry Fix (2026-02-15)
 
 ### 🐛 Bug Fixes

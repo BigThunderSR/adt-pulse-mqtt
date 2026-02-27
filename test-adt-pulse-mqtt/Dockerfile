@@ -4,7 +4,7 @@ FROM $BUILD_FROM
 ENV LANG=C.UTF-8
 ENV NODE_ENV=production
 
-# Install node and npm (Node 20+ LTS) - Required for modern JavaScript syntax and axios/undici
+# Install node and npm (Node version is determined by the Alpine version in the base image)
 RUN apk add --no-cache \
     nodejs \
     npm

@@ -1,4 +1,4 @@
-ARG BUILD_FROM=balenalib/amd64-alpine:3.20-run
+ARG BUILD_FROM=balenalib/amd64-alpine:3.21-run
 FROM $BUILD_FROM
 
 ENV LANG=C.UTF-8
@@ -8,7 +8,7 @@ ENV NODE_ENV=production
 #RUN apk add --update nodejs=~14
 #RUN apk add --update nodejs-npm=~14
 
-# Install node and npm (Node Version Depends on Balenalib Base Image Version Number - i.e. xx in 3.xx)
+# Install node and npm (Node version is determined by the Alpine version in the base image)
 RUN apk add --no-cache \
     nodejs \
     npm
