@@ -227,7 +227,7 @@ myAlarm.onStatusUpdate(function (device) {
           " Pushing alarm state to smartthings" +
           sm_alarm_topic,
       );
-      client.publish(sm_alarm_topic, sm_alarm_value, { retain: false });
+      client.publish(sm_alarm_topic, sm_alarm_value, { retain: true });
     }
     alarm_last_state = mqtt_state;
   }
@@ -268,26 +268,28 @@ myAlarm.onZoneUpdate(function (device) {
         sm_device_state = device.state == "devStatOK" ? "inactive" : "active";
       }
 
-      if (isUntrackedDevice) {
-        // Publish a config message
-        var sm_dev_zone_config_topic =
-          smartthings_topic +
-          "/" +
-          sm_device_type +
-          "/" +
-          trackedDeviceId +
-          "/config";
-        client.publish(sm_dev_zone_config_topic, sm_device_state, {
-          retain: false,
-        });
-        console.log(
-          new Date().toLocaleString() +
-            " Pushing new device to smartthings: " +
-            sm_device_state +
-            " to topic " +
-            sm_dev_zone_config_topic,
-        );
-      }
+      // Always publish config so reconnecting subscribers discover devices.
+      // Use retain so the broker stores it for future subscribers.
+      var sm_dev_zone_config_topic =
+        smartthings_topic +
+        "/" +
+        sm_device_type +
+        "/" +
+        trackedDeviceId +
+        "/config";
+      client.publish(sm_dev_zone_config_topic, sm_device_state, {
+        retain: true,
+      });
+      console.log(
+        new Date().toLocaleString() +
+          (isUntrackedDevice
+            ? " Pushing new device to smartthings: "
+            : " Re-announcing device to smartthings: ") +
+          sm_device_state +
+          " to topic " +
+          sm_dev_zone_config_topic,
+      );
+
       var sm_dev_zone_state_topic =
         smartthings_topic +
         "/" +
@@ -341,6 +343,41 @@ async function gracefulShutdown(signal) {
     }
   } catch (err) {
     console.error("Error during ADT Pulse logout:", err.message);
+  }
+
+  // Clean up SmartThings config topics before disconnecting
+  try {
+    if (smartthings && client && client.connected) {
+      console.log(new Date().toLocaleString() + " Removing SmartThings device configs...");
+      // Clear the alarm config topic
+      var sm_alarm_topic =
+        smartthings_topic + "_future/security/ADT Alarm System/config";
+      client.publish(sm_alarm_topic, "", { retain: true });
+      console.log(
+        new Date().toLocaleString() +
+          " Cleared SmartThings alarm config: " +
+          sm_alarm_topic,
+      );
+      // Clear each device config topic
+      for (const [trackedDeviceId, device] of Object.entries(devices)) {
+        var sm_device_type = "contact";
+        if (device.tags && device.tags.includes("motion")) {
+          sm_device_type = "motion";
+        }
+        var sm_dev_zone_config_topic =
+          smartthings_topic + "/" + sm_device_type + "/" + trackedDeviceId + "/config";
+        client.publish(sm_dev_zone_config_topic, "", { retain: true });
+        console.log(
+          new Date().toLocaleString() +
+            " Cleared SmartThings config: " +
+            sm_dev_zone_config_topic,
+        );
+      }
+      // Brief delay to let the empty config messages flush
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  } catch (err) {
+    console.error("Error clearing SmartThings topics:", err.message);
   }
 
   // Disconnect MQTT client
