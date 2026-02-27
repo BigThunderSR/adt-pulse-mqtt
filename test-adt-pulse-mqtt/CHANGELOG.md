@@ -1,5 +1,18 @@
 # Changelog
 
+## 5.1.2 - Migrate from balenalib to Official Alpine Base Images (2026-02-27)
+
+### ⬆️ Infrastructure
+
+- **Base Image**: Replaced unmaintained balenalib base images with official Alpine images
+  - `balenalib/amd64-alpine:3.21-run` → `alpine:3.21`
+  - `balenalib/aarch64-alpine:3.21-run` → `alpine:3.21`
+  - `balenalib/armv7hf-alpine:3.21-run` → `alpine:3.21`
+- **Cross-Build**: Removed legacy balena `cross-build-start`/`cross-build-end` QEMU shims and `QEMU_EXECVE` env var from arm Dockerfiles (use `docker buildx` instead)
+- **No Functional Changes**: Alpine 3.21 provides the same Node.js 22 LTS packages; runtime behavior is unchanged
+
+---
+
 ## 5.1.1 - SmartThings Topic Lifecycle Fix (2026-02-26)
 
 ### 🐛 Bug Fixes
