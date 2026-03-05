@@ -26,7 +26,7 @@
     "glob-parent": "^6.0.2",
     "lodash": "^4.17.23",
     "mqtt": "^5.15.0",
-    "tough-cookie": "^5.1.2"
+    "tough-cookie": "^6.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
