@@ -90,6 +90,8 @@ var smartthings = config.smartthings;
 
 var alarm_last_state = "unknown";
 var devices = {};
+var startupCleanupDone = false;
+var staleConfigTopics = new Set();
 
 client.on("connect", function () {
   console.log("MQTT Sub to: " + alarm_command_topic);
@@ -98,6 +100,18 @@ client.on("connect", function () {
     client.subscribe(
       smartthings_topic + "_future/security/ADT Alarm System/state",
     );
+    // On initial connect only, subscribe to wildcard to discover stale retained
+    // config topics from previous runs. Skip on MQTT reconnects (same process,
+    // our own retained topics are still valid).
+    if (!startupCleanupDone) {
+      staleConfigTopics.clear();
+      var configWildcard = smartthings_topic + "/+/+/+/config";
+      client.subscribe(configWildcard);
+      console.log(
+        new Date().toLocaleString() +
+          " SmartThings startup: subscribing to discover stale config topics",
+      );
+    }
   }
 });
 
@@ -105,6 +119,24 @@ client.on("message", function (topic, message) {
   console.log(
     new Date().toLocaleString() + " Received Message:" + topic + ":" + message,
   );
+
+  // Collect stale SmartThings config topics during startup cleanup phase
+  if (
+    smartthings &&
+    !startupCleanupDone &&
+    (topic.endsWith("/config") &&
+      topic.startsWith(smartthings_topic + "/"))
+  ) {
+    if (message.toString().length > 0) {
+      staleConfigTopics.add(topic);
+      console.log(
+        new Date().toLocaleString() +
+          " SmartThings startup: found stale config topic: " +
+          topic,
+      );
+    }
+    return;
+  }
 
   if (
     smartthings &&
@@ -234,6 +266,40 @@ myAlarm.onStatusUpdate(function (device) {
 });
 
 myAlarm.onZoneUpdate(function (device) {
+  // On first zone update, clear any stale SmartThings config topics from previous runs
+  if (smartthings && !startupCleanupDone) {
+    startupCleanupDone = true;
+    if (staleConfigTopics.size > 0) {
+      console.log(
+        new Date().toLocaleString() +
+          " SmartThings startup: clearing " +
+          staleConfigTopics.size +
+          " stale config topic(s)",
+      );
+      for (const staleTopic of staleConfigTopics) {
+        client.publish(staleTopic, "", { retain: true });
+        console.log(
+          new Date().toLocaleString() +
+            " SmartThings startup: cleared stale topic: " +
+            staleTopic,
+        );
+      }
+    } else {
+      console.log(
+        new Date().toLocaleString() +
+          " SmartThings startup: no stale config topics found",
+      );
+    }
+    // Unsubscribe from the cleanup wildcard
+    var configWildcard = smartthings_topic + "/+/+/+/config";
+    client.unsubscribe(configWildcard);
+    staleConfigTopics.clear();
+    console.log(
+      new Date().toLocaleString() +
+        " SmartThings startup: cleanup complete, unsubscribed from wildcard",
+    );
+  }
+
   // smartthings MQTT Discovery edge driver assumes:
   // - New devices are announced/created with `config`
   // - Device status are updated with `state`
