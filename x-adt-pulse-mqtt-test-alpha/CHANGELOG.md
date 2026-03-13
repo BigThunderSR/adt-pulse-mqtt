@@ -1,5 +1,19 @@
 # Changelog
 
+## 5.1.3 - SmartThings Startup Cleanup (2026-03-12)
+
+### 🐛 Bug Fixes
+
+- **Startup Cleanup**: On initial MQTT connect, subscribe to a wildcard to
+  discover stale retained SmartThings device config topics left by a previous
+  run (e.g., after a crash or interrupted shutdown). All stale configs are
+  cleared before fresh device configs are published on the first zone update
+- **Reconnect Safety**: Startup cleanup only runs once on the initial
+  connection; MQTT reconnects within the same process skip the cleanup to
+  avoid unnecessarily clearing valid retained topics
+
+---
+
 ## 5.1.2 - Migrate from balenalib to Official Alpine Base Images (2026-02-27)
 
 ### ⬆️ Infrastructure
