@@ -38,5 +38,8 @@ jobs:
       working-directory: adt-pulse-mqtt
     - run: npx nyc --reporter=lcov npm test
       working-directory: adt-pulse-mqtt
-    - run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report --project-token ${{ secrets.CODACY_PROJECT_TOKEN }}
-      working-directory: adt-pulse-mqtt
+    - name: Upload coverage to Codacy
+      uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699 # v1.3.0
+      with:
+        project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+        coverage-reports: adt-pulse-mqtt/coverage/lcov.info
