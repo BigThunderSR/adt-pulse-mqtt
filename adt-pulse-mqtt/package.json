@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node server.js",
     "debug": "node --nolazy --inspect=9229 --trace-warnings server.js",
-    "test": "c8 --reporter=html --reporter=text --reporter=lcov mocha",
+    "test": "c8 --reporter=html --reporter=text --reporter=lcov node --test",
     "lint": "prettier --write ."
   },
   "repository": {
@@ -30,12 +30,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "c8": "^11.0.0",
     "eslint": "^10.3.0",
     "globals": "^17.6.0",
-    "mocha": "^11.7.5",
-    "mocha-lcov-reporter": "^1.3.0",
     "nock": "^14.0.14",
-    "c8": "^11.0.0",
     "prettier": "^3.8.3",
     "rewire": "^9.0.1"
   }

@@ -1,7 +1,8 @@
 "use strict";
 
 /* eslint-disable no-prototype-builtins, no-unused-vars */
-const assert = require("assert");
+const { describe, it, beforeEach, afterEach } = require("node:test");
+const assert = require("node:assert");
 const rewire = require("rewire");
 const nock = require("nock");
 const fs = require("fs");
@@ -495,31 +496,30 @@ describe("ADT Pulse Error Handling Tests", function () {
     nock.cleanAll();
   });
 
-  it("Should handle authentication failure gracefully", function (done) {
+  it("Should handle authentication failure gracefully", function () {
     nock("https://portal.adtpulse.com").get("/").reply(401, "Unauthorized");
 
-    testAlarm
+    return testAlarm
       .login()
       .then(() => {
-        done(); // Even if it succeeds, that's fine
+        // Even if it succeeds, that's fine
       })
       .catch((error) => {
-        done(); // Handling error gracefully is what we want
+        // Handling error gracefully is what we want
       });
   });
 
-  it("Should handle network errors", function (done) {
+  it("Should handle network errors", function () {
     nock("https://portal.adtpulse.com")
       .get("/")
       .replyWithError("Network error");
 
-    testAlarm
+    return testAlarm
       .login()
       .then(() => {
-        done();
       })
       .catch((error) => {
-        done(); // Error handling is acceptable
+        // Error handling is acceptable
       });
   });
 
@@ -560,20 +560,20 @@ describe("ADT Pulse Error Handling Tests", function () {
     assert.ok(booleanAlarm.config !== undefined);
   });
 
-  it("Should test error path coverage", function () {
+  it("Should test error path coverage", async function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
     // Test setAlarmState with invalid parameters
     try {
-      testAlarm.setAlarmState(null);
+      await testAlarm.setAlarmState(null);
     } catch (error) {
       // Expected error path
     }
 
     // Test deviceStateChange with invalid device
     try {
-      testAlarm.deviceStateChange(null);
+      await testAlarm.deviceStateChange(null);
     } catch (error) {
       // Expected error path
     }
@@ -629,36 +629,30 @@ describe("ADT Pulse Error Handling Tests", function () {
     }
   });
 
-  it("Should handle device state changes", function () {
+  it("Should handle device state changes", async function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
+
+    // Mock the POST that deviceStateChange fires
+    nock("https://portal.adtpulse.com")
+      .post(/\/myhome\/test\/quickcontrol\/serv\/ChangeVariableServ.*/)
+      .reply(200, "OK");
 
     // Test deviceStateChange with mock device
     const mockDevice = {
       uri: "/test/device",
+      serialnumber: "ABC123",
       state: 1,
       name: "Test Device",
     };
 
-    // Mock the SAT variable to prevent errors
-    const originalSat = testAlarm.__proto__.constructor.__proto__.sat;
-    testAlarm.constructor.sat = "test-sat-token";
+    testAlarm.config.prefix = "/myhome/test";
 
-    try {
-      testAlarm.deviceStateChange(mockDevice);
-      assert.ok(true); // Should not throw
-    } catch (error) {
-      // Error is acceptable for this test
-      assert.ok(true);
-    } finally {
-      // Restore original SAT
-      if (originalSat !== undefined) {
-        testAlarm.constructor.sat = originalSat;
-      }
-    }
+    await testAlarm.deviceStateChange(mockDevice);
+    assert.ok(true);
   });
 
-  it("Should handle authentication bad response errors", function (done) {
+  it("Should handle authentication bad response errors", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -667,16 +661,14 @@ describe("ADT Pulse Error Handling Tests", function () {
       .get("/")
       .reply(200, "Bad response content"); // Non-redirect response
 
-    testAlarm
+    return testAlarm
       .login()
       .then(() => {
         // If it somehow succeeds, that's fine too
-        done();
       })
       .catch(() => {
         // Should handle error gracefully
         assert.strictEqual(testAlarm.authenticated, false);
-        done();
       });
   });
 });
@@ -794,38 +786,35 @@ describe("ADT Pulse Device Tests", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
-    // Mock login for pulse method
+    // Mock the full login + sync flow that pulse triggers
     nock("https://portal.adtpulse.com")
       .get("/")
       .reply(302, "", {
         Location: "https://portal.adtpulse.com/myhome/test/access/signin.jsp",
       })
-      .get(/.*signin.*/)
+      .get("/myhome/test/access/signin.jsp")
       .reply(200, "<html>Login page</html>")
-      .post(/.*signin.*/)
+      .post("/myhome/test/access/signin.jsp")
+      .query(true)
       .reply(302, "", {
         Location: "https://portal.adtpulse.com/myhome/test/summary/summary.jsp",
       })
-      .get(/.*summary.*/)
-      .reply(200, "<html>Summary page</html>");
+      .get("/myhome/test/summary/summary.jsp")
+      .reply(200, "<html>Summary</html>")
+      .get("/myhome/test/Ajax/SyncCheckServ")
+      .reply(200, "1-0-0");
 
-    // Test pulse method - it may not return a promise
-    try {
-      const result = testAlarm.pulse("test-uid");
-      if (result && typeof result.then === "function") {
-        return result
-          .then(() => {
-            assert.ok(true);
-          })
-          .catch(() => {
-            assert.ok(true); // Error is acceptable
-          });
-      } else {
-        assert.ok(true); // Method executed
-      }
-    } catch (error) {
-      assert.ok(true); // Error is acceptable
-    }
+    // Verify clients array starts empty
+    assert.strictEqual(testAlarm.clients.length, 0);
+
+    // Call pulse - it adds client and triggers sync (fire-and-forget)
+    testAlarm.pulse("test-uid");
+
+    // Verify the client was added
+    assert.ok(testAlarm.clients.includes("test-uid"));
+
+    // Give the async login+sync time to complete against nock
+    return new Promise(resolve => setTimeout(resolve, 200));
   });
 });
 
@@ -857,7 +846,7 @@ describe("ADT Pulse Configuration Tests", function () {
     assert.strictEqual(validAlarm.config.fingerprint, "fp");
   });
 
-  it("Should handle zone status JSON parsing errors", function (done) {
+  it("Should handle zone status JSON parsing errors", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -869,19 +858,17 @@ describe("ADT Pulse Configuration Tests", function () {
     testAlarm.authenticated = true;
     testAlarm.config.prefix = "/myhome/test";
 
-    testAlarm
+    return testAlarm
       .getZoneStatusOrb()
       .then(() => {
         // Should handle gracefully
-        done();
       })
       .catch(() => {
         // Error path is also acceptable
-        done();
       });
   });
 
-  it("Should handle device status network errors", function (done) {
+  it("Should handle device status network errors", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -893,14 +880,12 @@ describe("ADT Pulse Configuration Tests", function () {
     testAlarm.authenticated = true;
     testAlarm.config.prefix = "/myhome/test";
 
-    testAlarm
+    return testAlarm
       .getDeviceStatus()
       .then(() => {
-        done();
       })
       .catch(() => {
         // Error handling is what we want to test
-        done();
       });
   });
 
@@ -942,7 +927,11 @@ describe("ADT Pulse Configuration Tests", function () {
 describe("ADT Pulse Enhanced Coverage Tests", function () {
   let pulse = rewire("../adt-pulse.js");
 
-  it("Should handle getAlarmStatus timeout scenarios", function (done) {
+  beforeEach(function () {
+    nock.cleanAll();
+  });
+
+  it("Should handle getAlarmStatus timeout scenarios", async function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -954,18 +943,15 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     testAlarm.authenticated = true;
     testAlarm.config.prefix = "/myhome/test";
 
-    testAlarm
-      .getAlarmStatus()
-      .then(() => {
-        done(new Error("Should have rejected"));
-      })
-      .catch((error) => {
-        assert.ok(error.message.includes("Login timed out"));
-        done();
-      });
+    try {
+      await testAlarm.getAlarmStatus();
+      assert.fail("Should have rejected");
+    } catch (error) {
+      assert.ok(error.message.includes("Login timed out"));
+    }
   });
 
-  it("Should handle getAlarmStatus cheerio parsing errors", function (done) {
+  it("Should handle getAlarmStatus cheerio parsing errors", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -980,12 +966,11 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     testAlarm.authenticated = true;
     testAlarm.config.prefix = "/myhome/test";
 
-    testAlarm
+    return testAlarm
       .getAlarmStatus()
       .then(() => {
         // Test passes if cheerio can handle the HTML despite some malformation
         assert.ok(true);
-        done();
       })
       .catch((error) => {
         // Test also passes if it properly rejects with parsing error
@@ -993,11 +978,10 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
           error.message.includes("Cheerio parsing failed") ||
             error.message.includes("error"),
         );
-        done();
       });
   });
 
-  it("Should handle setAlarmState force arm without SAT token", function (done) {
+  it("Should handle setAlarmState force arm without SAT token", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -1021,20 +1005,18 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     // Clear SAT token to test the else branch
     testAlarm.sat = null;
 
-    testAlarm
+    return testAlarm
       .setAlarmState(action)
       .then(() => {
         assert.ok(true);
-        done();
       })
       .catch((error) => {
         // Even if it fails, we're testing the code path
         assert.ok(true);
-        done();
       });
   });
 
-  it("Should handle setAlarmState normal arm without SAT token", function (done) {
+  it("Should handle setAlarmState normal arm without SAT token", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -1057,20 +1039,18 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     // Clear SAT token to test the else branch
     testAlarm.sat = null;
 
-    testAlarm
+    return testAlarm
       .setAlarmState(action)
       .then(() => {
         assert.ok(true);
-        done();
       })
       .catch((error) => {
         // Even if the logic fails, we're testing the code path
         assert.ok(true);
-        done();
       });
   });
 
-  it("Should handle setAlarmState disarm without SAT token", function (done) {
+  it("Should handle setAlarmState disarm without SAT token", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -1092,21 +1072,18 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     // Clear SAT token to test the else branch
     testAlarm.sat = null;
 
-    testAlarm
+    return testAlarm
       .setAlarmState(action)
       .then(() => {
         assert.ok(true);
-        done();
       })
       .catch((error) => {
         // Even if the logic fails, we're testing the code path
         assert.ok(true);
-        done();
       });
   });
 
-  it("Should handle setAlarmState network errors", function (done) {
-    this.timeout(5000); // Increase timeout
+  it("Should handle setAlarmState network errors", { timeout: 5000 }, async function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -1125,21 +1102,18 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
       prev_state: "disarmed",
     };
 
-    testAlarm
-      .setAlarmState(action)
-      .then(() => {
-        done(new Error("Should have rejected"));
-      })
-      .catch((error) => {
-        assert.ok(
-          error.message.includes("Network") ||
-            error.message.includes("connection"),
-        );
-        done();
-      });
+    try {
+      await testAlarm.setAlarmState(action);
+      assert.fail("Should have rejected");
+    } catch (error) {
+      assert.ok(
+        error.message.includes("Network") ||
+          error.message.includes("connection"),
+      );
+    }
   });
 
-  it("Should handle getDeviceStatus with devices found", function (done) {
+  it("Should handle getDeviceStatus with devices found", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -1156,28 +1130,31 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     testAlarm.authenticated = true;
     testAlarm.config.prefix = "/myhome/test";
 
-    testAlarm
+    return testAlarm
       .getDeviceStatus()
       .then(() => {
         assert.ok(true);
-        done();
-      })
-      .catch((error) => {
-        done(error);
       });
   });
 
-  it("Should handle callback functions", function () {
+  it("Should handle callback functions", async function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
+
+    // Mock the POST that deviceStateChange fires
+    nock("https://portal.adtpulse.com")
+      .post(/\/myhome\/test\/quickcontrol\/serv\/ChangeVariableServ.*/)
+      .reply(200, "OK");
+
+    testAlarm.config.prefix = "/myhome/test";
 
     // Test that callback setters work
     testAlarm.onDeviceUpdate(() => {});
     testAlarm.onZoneUpdate(() => {});
     testAlarm.onStatusUpdate(() => {});
 
-    // Test deviceStateChange method
-    testAlarm.deviceStateChange("Test Device", "new state");
+    // Test deviceStateChange method with proper device object
+    await testAlarm.deviceStateChange({ name: "Test Device", state: 1, serialnumber: "SN1" });
 
     // Just verify the methods exist and can be called
     assert.ok(typeof testAlarm.onDeviceUpdate === "function");
@@ -1186,8 +1163,7 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     assert.ok(typeof testAlarm.deviceStateChange === "function");
   });
 
-  it("Should handle login authentication errors", function (done) {
-    this.timeout(5000); // Increase timeout
+  it("Should handle login authentication errors", { timeout: 5000 }, async function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -1196,21 +1172,18 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
       .get("/")
       .replyWithError("Network error");
 
-    testAlarm
-      .login()
-      .then(() => {
-        done(new Error("Should have rejected"));
-      })
-      .catch((error) => {
-        assert.ok(
-          error.message.includes("Network error") ||
-            error.message.includes("error"),
-        );
-        done();
-      });
+    try {
+      await testAlarm.login();
+      assert.fail("Should have rejected");
+    } catch (error) {
+      assert.ok(
+        error.message.includes("Network error") ||
+          error.message.includes("error"),
+      );
+    }
   });
 
-  it("Should handle getZoneStatusOrb with malformed response", function (done) {
+  it("Should handle getZoneStatusOrb with malformed response", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -1222,32 +1195,30 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     testAlarm.authenticated = true;
     testAlarm.config.prefix = "/myhome/test";
 
-    testAlarm
+    return testAlarm
       .getZoneStatusOrb()
       .then(() => {
         // If it somehow succeeds, that's also fine
         assert.ok(true);
-        done();
       })
       .catch((error) => {
         assert.ok(
           error.message.includes("not a function") ||
             error.message.includes("error"),
         );
-        done();
       });
   });
 
-  it("Should handle forced alarm retry logic", function (done) {
+  it("Should handle forced alarm retry logic", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
     // Mock a response that triggers the force retry logic
     nock("https://portal.adtpulse.com")
       .get(/.*armDisarm.*/)
-      .reply(200, "<html><body>Some sensors may be open</body></html>")
+      .reply(200, "Some sensors are open or reporting motion. sat=11111111-2222-3333-4444-555555555555&href=rest/adt/ui/client/security/setForceArm")
       .get(/.*RunRRACommand.*/)
-      .reply(200, "Success");
+      .reply(200, "Arming");
 
     testAlarm.authenticated = true;
     testAlarm.config.prefix = "/myhome/test";
@@ -1262,20 +1233,18 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
       isForced: false,
     };
 
-    testAlarm
+    return testAlarm
       .setAlarmState(action)
       .then(() => {
         assert.ok(true);
-        done();
       })
       .catch((error) => {
         // Even if it fails, we're testing the retry logic code path
         assert.ok(true);
-        done();
       });
   });
 
-  it("Should handle disarm with SAT token", function (done) {
+  it("Should handle disarm with SAT token", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -1295,16 +1264,14 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
       prev_state: "away",
     };
 
-    testAlarm
+    return testAlarm
       .setAlarmState(action)
       .then(() => {
         assert.ok(true);
-        done();
       })
       .catch((error) => {
         // Even if the logic fails, we're testing the SAT token code path
         assert.ok(true);
-        done();
       });
   });
 
@@ -1337,7 +1304,7 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     assert.strictEqual(partialAlarm.config.fingerprint, "");
   });
 
-  it("Should handle login with different response scenarios", function (done) {
+  it("Should handle login with different response scenarios", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -1356,21 +1323,19 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
           "https://portal.adtpulse.com/myhome/25.0.0-300/summary/summary.jsp",
       });
 
-    testAlarm
+    return testAlarm
       .login()
       .then(() => {
         // Should successfully parse the version and set prefix
         assert.ok(testAlarm.config.prefix.includes("25.0.0-300"));
-        done();
       })
       .catch((error) => {
         // Login failure is also a valid test outcome
         assert.ok(error instanceof Error);
-        done();
       });
   });
 
-  it("Should handle getDeviceStatus with error response", function (done) {
+  it("Should handle getDeviceStatus with error response", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -1382,17 +1347,170 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     testAlarm.authenticated = true;
     testAlarm.config.prefix = "/myhome/test";
 
-    testAlarm
+    return testAlarm
       .getDeviceStatus()
       .then(() => {
         // May still resolve with empty results
         assert.ok(true);
-        done();
       })
       .catch((error) => {
         // Error handling is valid
         assert.ok(true);
-        done();
+      });
+  });
+
+  it("Should handle non-forced arm with existing SAT token", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    // Set the module-level sat variable via rewire
+    pulse.__set__("sat", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+
+    nock("https://portal.adtpulse.com")
+      .get(/.*armDisarm.*/)
+      .reply(200, "Arming");
+
+    testAlarm.authenticated = true;
+    testAlarm.config.prefix = "/myhome/test";
+    testAlarm.config.disarmURI =
+      "/quickcontrol/armDisarm.jsp?href=rest/adt/ui/client/security/setArmState";
+
+    const action = {
+      newstate: "away",
+      prev_state: "disarmed",
+      isForced: false,
+    };
+
+    return testAlarm.setAlarmState(action).then((result) => {
+      assert.ok(result.includes("Arming"));
+      // Reset sat
+      pulse.__set__("sat", "");
+    });
+  });
+
+  it("Should handle disarm with existing SAT token", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    // Set the module-level sat variable via rewire
+    pulse.__set__("sat", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+
+    nock("https://portal.adtpulse.com")
+      .get(/.*armDisarm.*/)
+      .reply(200, "Disarming");
+
+    testAlarm.authenticated = true;
+    testAlarm.config.prefix = "/myhome/test";
+    testAlarm.config.disarmURI =
+      "/quickcontrol/armDisarm.jsp?href=rest/adt/ui/client/security/setArmState";
+
+    const action = {
+      newstate: "disarm",
+      prev_state: "away",
+      isForced: false,
+    };
+
+    return testAlarm.setAlarmState(action).then((result) => {
+      assert.ok(result.includes("Disarming"));
+      // Reset sat
+      pulse.__set__("sat", "");
+    });
+  });
+
+  it("Should reject when stale session persists after retry", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    nock("https://portal.adtpulse.com")
+      .get(/.*armDisarm.*/)
+      .reply(200, "Unable to Proceed. Your session has expired.");
+
+    testAlarm.authenticated = true;
+    testAlarm.config.prefix = "/myhome/test";
+    testAlarm.config.disarmURI =
+      "/quickcontrol/armDisarm.jsp?href=rest/adt/ui/client/security/setArmState";
+
+    const action = {
+      newstate: "away",
+      prev_state: "disarmed",
+      isForced: false,
+      isRetry: true,
+    };
+
+    return testAlarm
+      .setAlarmState(action)
+      .then(() => {
+        assert.fail("Should have rejected");
+      })
+      .catch((error) => {
+        assert.ok(
+          error.message.includes("session expired after re-authentication"),
+        );
+      });
+  });
+
+  it("Should reject non-forced alarm with unexpected response", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    nock("https://portal.adtpulse.com")
+      .get(/.*armDisarm.*/)
+      .reply(200, "<html><body>Some unexpected page content</body></html>");
+
+    testAlarm.authenticated = true;
+    testAlarm.config.prefix = "/myhome/test";
+    testAlarm.config.disarmURI =
+      "/quickcontrol/armDisarm.jsp?href=rest/adt/ui/client/security/setArmState";
+
+    const action = {
+      newstate: "away",
+      prev_state: "disarmed",
+      isForced: false,
+    };
+
+    return testAlarm
+      .setAlarmState(action)
+      .then(() => {
+        assert.fail("Should have rejected");
+      })
+      .catch((error) => {
+        assert.ok(
+          error.message.includes("Alarm state change failed"),
+        );
+      });
+  });
+
+  it("Should handle stale session re-auth retry failure", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    // First call gets stale session response
+    nock("https://portal.adtpulse.com")
+      .get(/.*armDisarm.*/)
+      .reply(200, "Unable to Proceed. Your session has expired.")
+      // Login attempt will fail
+      .post(/.*access.*/)
+      .reply(500, "Server Error");
+
+    testAlarm.authenticated = true;
+    testAlarm.config.prefix = "/myhome/test";
+    testAlarm.config.disarmURI =
+      "/quickcontrol/armDisarm.jsp?href=rest/adt/ui/client/security/setArmState";
+
+    const action = {
+      newstate: "away",
+      prev_state: "disarmed",
+      isForced: false,
+    };
+
+    return testAlarm
+      .setAlarmState(action)
+      .then(() => {
+        assert.fail("Should have rejected");
+      })
+      .catch((error) => {
+        // The re-auth retry should fail
+        assert.ok(error);
       });
   });
 });
