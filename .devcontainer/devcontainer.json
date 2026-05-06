@@ -5,7 +5,7 @@
     "ghcr.io/devcontainers/features/docker-in-docker:2": { "moby": false },
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "cd adt-pulse-mqtt && npm install",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -13,6 +13,5 @@
         "esbenp.prettier-vscode"
       ]
     }
-  },
-  "mounts": []
+  }
 }
