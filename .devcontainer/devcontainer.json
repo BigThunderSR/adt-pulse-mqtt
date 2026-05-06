@@ -9,6 +9,7 @@
   "customizations": {
     "vscode": {
       "extensions": [
+        "dbaeumer.vscode-eslint",
         "ms-vscode.vscode-typescript-next",
         "esbenp.prettier-vscode"
       ]
