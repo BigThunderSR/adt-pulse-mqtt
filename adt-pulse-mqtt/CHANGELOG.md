@@ -1,5 +1,20 @@
 # Changelog
 
+## 5.1.4 - Dependency Updates & Infrastructure (2026-05-06)
+
+### ⬆️ Dependencies
+
+- Updated all runtime and dev dependencies to latest versions (includes axios security fix)
+
+### 🏗️ Infrastructure
+
+- **Base Image**: Upgraded Alpine base images from 3.21 to 3.22
+- **CI**: Migrated HA builder to new workflow format (2026.03.2)
+- **DevContainer**: Added devcontainer configuration with ESLint extension for isolated development
+- **Node.js**: Added `.nvmrc` for consistent Node.js version management
+
+---
+
 ## 5.1.3 - SmartThings Startup Cleanup (2026-03-12)
 
 ### 🐛 Bug Fixes
