@@ -1,5 +1,29 @@
 # Changelog
 
+## 5.3.0 - Home Assistant MQTT Auto-Discovery (2026-07-07)
+
+### ✨ Features
+
+- **Home Assistant MQTT Auto-Discovery**: The alarm panel and all zones are now
+  announced to Home Assistant automatically — no manual `configuration.yaml`
+  MQTT platform setup needed
+  - Alarm system is published as an `alarm_control_panel` entity
+    (arm home / arm away / disarm, plus `pending` and `triggered` states)
+  - Zones are published as `binary_sensor` entities with device classes
+    inferred from the sensor type (door, window, motion, sound, gas, smoke)
+  - All entities are grouped under a single "ADT Pulse" device in HA
+  - Availability tracking via an MQTT Last Will and Testament (LWT), so
+    entities show as unavailable if the addon stops or crashes
+  - Discovery configs are re-announced when Home Assistant restarts (birth
+    message on `<discovery_prefix>/status`)
+  - New options: `ha_discovery` (default `true`), `ha_discovery_topic`
+    (default `homeassistant`), and `availability_topic` (default
+    `adt/availability`). If you already have a manually configured MQTT
+    alarm panel in `configuration.yaml`, either remove it or set
+    `ha_discovery: false` to avoid duplicate entities
+
+---
+
 ## 5.2.0 - Node.js 24 & Dependency Updates (2026-07-07)
 
 ### ⬆️ Node.js
