@@ -37,8 +37,6 @@ jobs:
       working-directory: adt-pulse-mqtt
     - run: npm test
       working-directory: adt-pulse-mqtt
-    - run: npx nyc --reporter=lcov npm test
-      working-directory: adt-pulse-mqtt
     - name: Upload coverage to Codacy
       uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699 # v1.3.0
       with:
