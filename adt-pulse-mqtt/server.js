@@ -152,8 +152,9 @@ function publishHaAlarmDiscovery() {
     command_topic: alarm_command_topic,
     payload_arm_home: "arm_home",
     payload_arm_away: "arm_away",
+    payload_arm_night: "arm_night",
     payload_disarm: "disarm",
-    supported_features: ["arm_home", "arm_away"],
+    supported_features: ["arm_home", "arm_away", "arm_night"],
     code_arm_required: false,
     code_disarm_required: false,
     code_trigger_required: false,
@@ -315,6 +316,7 @@ client.on("message", function (topic, message) {
 
   if (alarm_last_state == "armed_home") prev_state = "stay";
   if (alarm_last_state == "armed_away") prev_state = "away";
+  if (alarm_last_state == "armed_night") prev_state = "night";
 
   if (msg == "arm_home") {
     action = { newstate: "stay", prev_state: prev_state };
@@ -322,6 +324,8 @@ client.on("message", function (topic, message) {
     action = { newstate: "disarm", prev_state: prev_state };
   } else if (msg == "arm_away") {
     action = { newstate: "away", prev_state: prev_state };
+  } else if (msg == "arm_night") {
+    action = { newstate: "night", prev_state: prev_state };
   } else {
     // I don't know this mode #5
     console.log(
@@ -367,6 +371,11 @@ myAlarm.onStatusUpdate(function (device) {
   if (status.includes("armed away")) {
     mqtt_state = "armed_away";
     sm_alarm_value = "siren";
+  }
+  // "Armed Night" / "Armed Night Stay" depending on panel
+  if (status.includes("armed night")) {
+    mqtt_state = "armed_night";
+    sm_alarm_value = "strobe";
   }
   if (status.includes("alarm")) {
     mqtt_state = "triggered";

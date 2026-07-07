@@ -1,5 +1,18 @@
 # Changelog
 
+## 5.4.0 - Arm Night Mode (2026-07-07)
+
+### ✨ Features
+
+- **Arm Night**: New `arm_night` MQTT command arms the panel in night mode
+  (portal `arm=night`); "Armed Night" / "Armed Night Stay" panel statuses are
+  reported as `armed_night`. The auto-discovered Home Assistant alarm panel
+  now shows an Arm Night button. Requires a panel that supports night arming —
+  if yours doesn't, the ADT portal rejects the command and the alarm state is
+  unchanged
+
+---
+
 ## 5.3.0 - Home Assistant MQTT Auto-Discovery (2026-07-07)
 
 ### ✨ Features
