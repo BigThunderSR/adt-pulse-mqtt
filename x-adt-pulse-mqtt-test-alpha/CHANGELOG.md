@@ -1,5 +1,22 @@
 # Changelog
 
+## 5.2.0 - Node.js 24 & Dependency Updates (2026-07-07)
+
+### ⬆️ Node.js
+
+- **Engine Requirement**: Updated from Node.js >= 22 to Node.js >= 24
+
+### ⬆️ Dependencies
+
+- Updated all runtime and dev dependencies to latest versions
+
+### 🏗️ Infrastructure
+
+- **CI**: Updated HA builder from 2026.03.2 to 2026.06.0
+- **CI**: Dropped Node.js 20.x testing matrix
+
+---
+
 ## 5.1.4 - Dependency Updates & Infrastructure (2026-05-06)
 
 ### ⬆️ Dependencies
