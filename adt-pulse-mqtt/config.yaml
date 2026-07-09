@@ -1,6 +1,6 @@
 ---
 name: ADT Pulse MQTT - BigThunderSR
-version: 5.3.0
+version: 5.2.0
 slug: adtpulsemqtt_bigthundersr
 description: ADT Pulse Bridge using MQTT
 #codenotary: bigthundersr@outlook.com
@@ -33,7 +33,7 @@ options:
   zone_state_topic: adt/zone
   smartthings_topic: smartthings
   smartthings: false
-  ha_discovery: true
+  ha_discovery: false
   ha_discovery_topic: homeassistant
   availability_topic: adt/availability
 schema:

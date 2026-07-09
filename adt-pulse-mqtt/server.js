@@ -81,7 +81,7 @@ var ha_discovery_topic = config.ha_discovery_topic || "homeassistant";
 var availability_topic = config.availability_topic || "adt/availability";
 
 var mqtt_connect_options = Object.assign({}, config.mqtt_connect_options);
-if (ha_discovery) {
+if (ha_discovery && !mqtt_connect_options.will) {
   // Last-will so Home Assistant marks entities unavailable if we die uncleanly
   mqtt_connect_options.will = {
     topic: availability_topic,
