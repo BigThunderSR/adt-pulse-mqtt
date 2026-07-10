@@ -588,7 +588,7 @@ module.exports = pulse;
   };
 
   this.setAlarmState = function (action) {
-    // action can be: stay, away, disarm
+    // action can be: stay, away, night, disarm
     // action.newstate
     // action.prev_state
 

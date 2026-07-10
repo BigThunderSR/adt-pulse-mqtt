@@ -34,6 +34,9 @@ function loadConfig() {
       zone_state_topic: process.env.ZONE_STATE_TOPIC || "adt/zone",
       smartthings_topic: process.env.SMARTTHINGS_TOPIC || "smartthings",
       smartthings: process.env.SMARTTHINGS_ENABLED === "true",
+      ha_discovery: process.env.HA_DISCOVERY_ENABLED === "true",
+      ha_discovery_topic: process.env.HA_DISCOVERY_TOPIC || "homeassistant",
+      availability_topic: process.env.AVAILABILITY_TOPIC || "adt/availability",
     };
   }
 
@@ -72,14 +75,26 @@ var myAlarm = new Pulse(
   config.pulse_login.fingerprint,
 );
 
+// Home Assistant MQTT auto-discovery (must be explicitly enabled)
+var ha_discovery = config.ha_discovery === true;
+var ha_discovery_topic = config.ha_discovery_topic || "homeassistant";
+var availability_topic = config.availability_topic || "adt/availability";
+
+var mqtt_connect_options = Object.assign({}, config.mqtt_connect_options);
+if (ha_discovery && !mqtt_connect_options.will) {
+  // Last-will so Home Assistant marks entities unavailable if we die uncleanly
+  mqtt_connect_options.will = {
+    topic: availability_topic,
+    payload: "offline",
+    retain: true,
+  };
+}
+
 // Use mqtt_url option if specified, otherwise build URL using host option
 if (config.mqtt_url) {
-  client = new mqtt.connect(config.mqtt_url, config.mqtt_connect_options);
+  client = new mqtt.connect(config.mqtt_url, mqtt_connect_options);
 } else {
-  client = new mqtt.connect(
-    "mqtt://" + config.mqtt_host,
-    config.mqtt_connect_options,
-  );
+  client = new mqtt.connect("mqtt://" + config.mqtt_host, mqtt_connect_options);
 }
 
 var alarm_state_topic = config.alarm_state_topic;
@@ -92,10 +107,111 @@ var alarm_last_state = "unknown";
 var devices = {};
 var startupCleanupDone = false;
 var staleConfigTopics = new Set();
+var haAnnouncedZones = new Set();
+
+// ---------------------------------------------------------------------------
+// Home Assistant MQTT auto-discovery
+// https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
+// ---------------------------------------------------------------------------
+
+var HA_DEVICE_INFO = {
+  identifiers: ["adt_pulse_mqtt"],
+  name: "ADT Pulse",
+  manufacturer: "ADT",
+  model: "Pulse",
+  sw_version: require("./package.json").version,
+};
+
+function haSlugify(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+// Map the zone tags (sensor,[doorWindow|motion|glass|co|fire]) assigned by
+// adt-pulse.js to a Home Assistant binary_sensor device class
+function haZoneDeviceClass(device) {
+  if (device.tags.includes("motion")) return "motion";
+  if (device.tags.includes("doorWindow")) {
+    return device.name.includes("Window") ? "window" : "door";
+  }
+  if (device.tags.includes("glass")) return "sound";
+  if (device.tags.includes("co")) return "gas";
+  if (device.tags.includes("fire")) return "smoke";
+  return null;
+}
+
+function publishHaAlarmDiscovery() {
+  var ha_alarm_config_topic =
+    ha_discovery_topic + "/alarm_control_panel/adt_pulse/alarm/config";
+  var payload = {
+    name: "Alarm",
+    unique_id: "adt_pulse_alarm",
+    state_topic: alarm_state_topic,
+    command_topic: alarm_command_topic,
+    payload_arm_home: "arm_home",
+    payload_arm_away: "arm_away",
+    payload_arm_night: "arm_night",
+    payload_disarm: "disarm",
+    supported_features: ["arm_home", "arm_away", "arm_night"],
+    code_arm_required: false,
+    code_disarm_required: false,
+    code_trigger_required: false,
+    availability_topic: availability_topic,
+    device: HA_DEVICE_INFO,
+  };
+  client.publish(ha_alarm_config_topic, JSON.stringify(payload), {
+    retain: true,
+  });
+  console.log(
+    new Date().toLocaleString() +
+      " HA discovery: published alarm panel config to " +
+      ha_alarm_config_topic,
+  );
+}
+
+function publishHaZoneDiscovery(device) {
+  var slug = haSlugify(device.id + "_" + device.name);
+  var ha_zone_config_topic =
+    ha_discovery_topic + "/binary_sensor/adt_pulse/" + slug + "/config";
+  var payload = {
+    name: device.name,
+    unique_id: "adt_pulse_" + slug,
+    state_topic: zone_state_topic + "/" + device.name + "/state",
+    // devStatOK -> clear, devStatUnknown -> unknown, anything else
+    // (devStatOpen/devStatMotion/devStatTamper/devStatAlarm) -> detected
+    value_template:
+      "{% if value == 'devStatOK' %}OFF" +
+      "{% elif value == 'devStatUnknown' %}None" +
+      "{% else %}ON{% endif %}",
+    availability_topic: availability_topic,
+    device: HA_DEVICE_INFO,
+  };
+  var device_class = haZoneDeviceClass(device);
+  if (device_class) {
+    payload.device_class = device_class;
+  }
+  client.publish(ha_zone_config_topic, JSON.stringify(payload), {
+    retain: true,
+  });
+  console.log(
+    new Date().toLocaleString() +
+      " HA discovery: published zone config to " +
+      ha_zone_config_topic,
+  );
+}
 
 client.on("connect", function () {
   console.log("MQTT Sub to: " + alarm_command_topic);
   client.subscribe(alarm_command_topic);
+  if (ha_discovery) {
+    client.publish(availability_topic, "online", { retain: true });
+    publishHaAlarmDiscovery();
+    // Home Assistant publishes a birth message when it (re)starts; use it to
+    // re-announce discovery configs and current states
+    client.subscribe(ha_discovery_topic + "/status");
+  }
   if (smartthings) {
     client.subscribe(
       smartthings_topic + "_future/security/ADT Alarm System/state",
@@ -120,12 +236,36 @@ client.on("message", function (topic, message) {
     new Date().toLocaleString() + " Received Message:" + topic + ":" + message,
   );
 
+  // Home Assistant birth message: re-announce discovery configs and states
+  if (ha_discovery && topic == ha_discovery_topic + "/status") {
+    if (message.toString() == "online") {
+      console.log(
+        new Date().toLocaleString() +
+          " HA discovery: Home Assistant is online, re-announcing devices",
+      );
+      client.publish(availability_topic, "online", { retain: true });
+      publishHaAlarmDiscovery();
+      if (alarm_last_state != "unknown") {
+        client.publish(alarm_state_topic, alarm_last_state, { retain: true });
+      }
+      for (const device of Object.values(devices)) {
+        publishHaZoneDiscovery(device);
+        client.publish(
+          zone_state_topic + "/" + device.name + "/state",
+          device.state,
+          { retain: false },
+        );
+      }
+    }
+    return;
+  }
+
   // Collect stale SmartThings config topics during startup cleanup phase
   if (
     smartthings &&
     !startupCleanupDone &&
-    (topic.endsWith("/config") &&
-      topic.startsWith(smartthings_topic + "/"))
+    topic.endsWith("/config") &&
+    topic.startsWith(smartthings_topic + "/")
   ) {
     if (message.toString().length > 0) {
       staleConfigTopics.add(topic);
@@ -176,6 +316,7 @@ client.on("message", function (topic, message) {
 
   if (alarm_last_state == "armed_home") prev_state = "stay";
   if (alarm_last_state == "armed_away") prev_state = "away";
+  if (alarm_last_state == "armed_night") prev_state = "night";
 
   if (msg == "arm_home") {
     action = { newstate: "stay", prev_state: prev_state };
@@ -183,6 +324,8 @@ client.on("message", function (topic, message) {
     action = { newstate: "disarm", prev_state: prev_state };
   } else if (msg == "arm_away") {
     action = { newstate: "away", prev_state: prev_state };
+  } else if (msg == "arm_night") {
+    action = { newstate: "night", prev_state: prev_state };
   } else {
     // I don't know this mode #5
     console.log(
@@ -228,6 +371,11 @@ myAlarm.onStatusUpdate(function (device) {
   if (status.includes("armed away")) {
     mqtt_state = "armed_away";
     sm_alarm_value = "siren";
+  }
+  // "Armed Night" / "Armed Night Stay" depending on panel
+  if (status.includes("armed night")) {
+    mqtt_state = "armed_night";
+    sm_alarm_value = "strobe";
   }
   if (status.includes("alarm")) {
     mqtt_state = "triggered";
@@ -316,6 +464,12 @@ myAlarm.onZoneUpdate(function (device) {
   if (isUntrackedDevice || device.timestamp > trackedDevice.timestamp) {
     var dev_zone_state_topic = zone_state_topic + "/" + device.name + "/state";
 
+    // Announce new zones to Home Assistant before publishing their state
+    if (ha_discovery && !haAnnouncedZones.has(trackedDeviceId)) {
+      publishHaZoneDiscovery(device);
+      haAnnouncedZones.add(trackedDeviceId);
+    }
+
     client.publish(dev_zone_state_topic, device.state, { retain: false });
     console.log(
       "\x1b[32m%s\x1b[0m",
@@ -392,7 +546,8 @@ async function gracefulShutdown(signal) {
 
   console.log(
     "\x1b[33m%s\x1b[0m",
-    new Date().toLocaleString() + ` Received ${signal}, starting graceful shutdown...`,
+    new Date().toLocaleString() +
+      ` Received ${signal}, starting graceful shutdown...`,
   );
 
   // Stop the pulse sync interval
@@ -414,7 +569,9 @@ async function gracefulShutdown(signal) {
   // Clean up SmartThings config topics before disconnecting
   try {
     if (smartthings && client && client.connected) {
-      console.log(new Date().toLocaleString() + " Removing SmartThings device configs...");
+      console.log(
+        new Date().toLocaleString() + " Removing SmartThings device configs...",
+      );
       // Clear the alarm config topic
       var sm_alarm_topic =
         smartthings_topic + "_future/security/ADT Alarm System/config";
@@ -431,7 +588,12 @@ async function gracefulShutdown(signal) {
           sm_device_type = "motion";
         }
         var sm_dev_zone_config_topic =
-          smartthings_topic + "/" + sm_device_type + "/" + trackedDeviceId + "/config";
+          smartthings_topic +
+          "/" +
+          sm_device_type +
+          "/" +
+          trackedDeviceId +
+          "/config";
         client.publish(sm_dev_zone_config_topic, "", { retain: true });
         console.log(
           new Date().toLocaleString() +
@@ -446,12 +608,31 @@ async function gracefulShutdown(signal) {
     console.error("Error clearing SmartThings topics:", err.message);
   }
 
+  // Mark entities unavailable in Home Assistant. Discovery configs are
+  // intentionally left retained so entities survive addon restarts.
+  try {
+    if (ha_discovery && client && client.connected) {
+      client.publish(availability_topic, "offline", { retain: true });
+      console.log(
+        new Date().toLocaleString() +
+          " Published offline availability to " +
+          availability_topic,
+      );
+      // Brief delay to let the message flush
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  } catch (err) {
+    console.error("Error publishing offline availability:", err.message);
+  }
+
   // Disconnect MQTT client
   try {
     if (client && client.connected) {
       await new Promise((resolve) => {
         client.end(false, {}, () => {
-          console.log(new Date().toLocaleString() + " MQTT client disconnected");
+          console.log(
+            new Date().toLocaleString() + " MQTT client disconnected",
+          );
           resolve();
         });
       });
