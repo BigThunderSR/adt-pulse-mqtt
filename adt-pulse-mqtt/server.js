@@ -34,7 +34,7 @@ function loadConfig() {
       zone_state_topic: process.env.ZONE_STATE_TOPIC || "adt/zone",
       smartthings_topic: process.env.SMARTTHINGS_TOPIC || "smartthings",
       smartthings: process.env.SMARTTHINGS_ENABLED === "true",
-      ha_discovery: process.env.HA_DISCOVERY_ENABLED !== "false",
+      ha_discovery: process.env.HA_DISCOVERY_ENABLED === "true",
       ha_discovery_topic: process.env.HA_DISCOVERY_TOPIC || "homeassistant",
       availability_topic: process.env.AVAILABILITY_TOPIC || "adt/availability",
     };
