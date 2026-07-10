@@ -82,7 +82,7 @@ In most cases, these options are sufficient. Alternatively, the mqtt_url can be 
 
 ### Home Assistant MQTT Auto-Discovery (Recommended)
 
-As of version 5.2.0, this add-on supports [Home Assistant MQTT discovery](https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery) and announces all entities automatically — no `configuration.yaml` editing required. As long as the MQTT integration is set up in Home Assistant, the following appear under a single **ADT Pulse** device after the add-on starts:
+This add-on supports [Home Assistant MQTT discovery](https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery) and can announce all entities automatically — no `configuration.yaml` editing required. As long as the MQTT integration is set up in Home Assistant, the following appear under a single **ADT Pulse** device after the add-on starts:
 
 - An **alarm control panel** entity supporting arm home / arm away / arm night / disarm (with `pending` and `triggered` states). Arm night requires a panel that supports night arming — if yours doesn't, the ADT portal rejects the command and the alarm state is unchanged
 - A **binary sensor** entity per zone, with the device class inferred from the sensor type (door, window, motion, sound, gas, smoke)
@@ -91,7 +91,7 @@ Entities automatically show as **unavailable** if the add-on stops or crashes (v
 
 The related add-on options (defaults shown):
 
-- `ha_discovery`: `true` — set to `false` to disable auto-discovery
+- `ha_discovery`: `false` — set to `true` to enable auto-discovery
 - `ha_discovery_topic`: `homeassistant` — must match the `discovery_prefix` configured in Home Assistant's MQTT integration
 - `availability_topic`: `adt/availability` — topic used for online/offline availability
 
