@@ -310,7 +310,7 @@ client.on("message", function (topic, message) {
     return;
   }
 
-  var msg = message.toString();
+  var msg = message.toString().toLowerCase();
   var action;
   var prev_state = "disarmed";
 
