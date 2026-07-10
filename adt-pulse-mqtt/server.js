@@ -75,8 +75,8 @@ var myAlarm = new Pulse(
   config.pulse_login.fingerprint,
 );
 
-// Home Assistant MQTT auto-discovery (enabled unless explicitly disabled)
-var ha_discovery = config.ha_discovery !== false;
+// Home Assistant MQTT auto-discovery (must be explicitly enabled)
+var ha_discovery = config.ha_discovery === true;
 var ha_discovery_topic = config.ha_discovery_topic || "homeassistant";
 var availability_topic = config.availability_topic || "adt/availability";
 
