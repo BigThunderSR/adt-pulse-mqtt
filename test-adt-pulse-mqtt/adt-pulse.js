@@ -45,6 +45,7 @@ const pulse = function (username = "", password = "", fingerprint = "") {
   /* auth failure backoff state */
   this.authFailures = 0;
   this.authBackoffUntil = 0;
+  this.maxAuthFailures = 5;
 };
 
 module.exports = pulse;
@@ -82,6 +83,16 @@ module.exports = pulse;
 
       if (this.authenticated) {
         resolve();
+      } else if (this.authFailures >= this.maxAuthFailures) {
+        console.log(
+          "\x1b[31m%s\x1b[0m",
+          new Date().toLocaleString() +
+            " Pulse: FATAL - " +
+            this.maxAuthFailures +
+            " consecutive auth failures. Shutting down to prevent account lockout.",
+        );
+        clearInterval(this.pulseInterval);
+        process.exit(1);
       } else if (Date.now() < this.authBackoffUntil) {
         var waitSec = Math.ceil((this.authBackoffUntil - Date.now()) / 1000);
         reject(
