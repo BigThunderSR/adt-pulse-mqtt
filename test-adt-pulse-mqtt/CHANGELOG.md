@@ -1,25 +1,16 @@
 # Changelog
 
-## 5.3.0b - Auth Failure Shutdown (2026-07-11)
-
-### 🐛 Bug Fixes
-
-- **Auto-shutdown on auth failure**: Process exits after 5 consecutive
-  authentication failures to prevent account lockout. With backoff
-  (30s, 60s, 2min, 5min), only 5 attempts over ~8.5 minutes before
-  shutdown. Addon shows as stopped in HA, making the issue obvious.
-
----
-
-## 5.3.0a - Auth Crash Loop Fix (2026-07-11)
+## 5.3.0c - Auth Failure Handling (2026-07-11)
 
 ### 🐛 Bug Fixes
 
 - **Authentication crash loop**: Fixed `JSON.stringify` on circular axios
   request object that caused unhandled rejection crash on auth failure
-- **Account lockout prevention**: Added exponential backoff (30s to 15min)
-  on repeated auth failures to prevent rapid retry loops from locking
-  the ADT Pulse account
+- **Account lockout prevention**: Added exponential backoff (30s, 60s, 2min,
+  5min) on repeated auth failures — only 5 attempts over ~8.5 minutes
+- **Idle on max failures**: After 5 consecutive failures, process stays
+  running but stops all login attempts. Prevents Docker restart loop.
+  Fix credentials and restart the addon manually to retry.
 - **Unhandled rejection**: Added `.catch()` on `login()` in `sync()` so
   auth failures don't crash the process
 
