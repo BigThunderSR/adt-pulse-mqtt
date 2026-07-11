@@ -65,9 +65,9 @@ jobs:
             done
           else
             for addon in ${{ steps.addons.outputs.addons }}; do
-              if [[ "$CHANGED_FILES" =~ $addon ]]; then
+              if [[ "$CHANGED_FILES" =~ (^|[[:space:]])$addon/ ]]; then
                 for file in ${{ env.MONITORED_FILES }}; do
-                    if [[ "$CHANGED_FILES" =~ $addon/$file ]]; then
+                    if [[ "$CHANGED_FILES" =~ (^|[[:space:]])$addon/$file([[:space:]]|$) ]]; then
                       if [[ ! "${changed_addons[@]}" =~ $addon ]]; then
                         changed_addons+=("\"${addon}\",");
                       fi
