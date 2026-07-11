@@ -41,6 +41,11 @@ const pulse = function (username = "", password = "", fingerprint = "") {
 
   /* heartbeat */
   this.pulseInterval = setInterval(this.sync.bind(this), 5000);
+
+  /* auth failure backoff state */
+  this.authFailures = 0;
+  this.authBackoffUntil = 0;
+  this.maxAuthFailures = 5;
 };
 
 module.exports = pulse;
@@ -78,6 +83,26 @@ module.exports = pulse;
 
       if (this.authenticated) {
         resolve();
+      } else if (this.authFailures >= this.maxAuthFailures) {
+        console.log(
+          "\x1b[31m%s\x1b[0m",
+          new Date().toLocaleString() +
+            " Pulse: FATAL - " +
+            this.maxAuthFailures +
+            " consecutive auth failures. All login attempts stopped to prevent account lockout." +
+            " Fix your credentials and restart the addon.",
+        );
+        clearInterval(this.pulseInterval);
+        reject(
+          new Error("Authentication permanently stopped - max failures reached"),
+        );
+      } else if (Date.now() < this.authBackoffUntil) {
+        var waitSec = Math.ceil((this.authBackoffUntil - Date.now()) / 1000);
+        reject(
+          new Error(
+            "Authentication backoff active, retrying in " + waitSec + "s",
+          ),
+        );
       } else {
         console.log(
           new Date().toLocaleString() + " Pulse: Login Called, Authenticating",
@@ -181,14 +206,31 @@ module.exports = pulse;
               console.log(
                 "\x1b[41m%s\x1b[0m",
                 new Date().toLocaleString() +
-                  " Pulse: httpResponse - " +
-                  JSON.stringify(httpResponse.request),
+                  " Pulse: httpResponse path - " +
+                  (httpResponse.request.path || "unknown") +
+                  " status - " +
+                  (httpResponse.status || "unknown"),
+              );
+              that.authFailures++;
+              // Backoff: 30s, 60s, 2min, 5min, max 15min
+              var backoffMs = Math.min(30000 * Math.pow(2, that.authFailures - 1), 900000);
+              that.authBackoffUntil = Date.now() + backoffMs;
+              console.log(
+                "\x1b[33m%s\x1b[0m",
+                new Date().toLocaleString() +
+                  " Pulse: Auth backoff " +
+                  Math.round(backoffMs / 1000) +
+                  "s (attempt " +
+                  that.authFailures +
+                  ")",
               );
               reject(
                 new Error("Authentication failed - invalid redirect response"),
               );
             } else {
               that.authenticated = true;
+              that.authFailures = 0;
+              that.authBackoffUntil = 0;
               console.log(
                 "\x1b[32m%s\x1b[0m",
                 new Date().toLocaleString() + " Pulse: Authentication Success",
@@ -205,6 +247,18 @@ module.exports = pulse;
               new Date().toLocaleString() +
                 " Pulse: Authentication Error - " +
                 JSON.stringify(e.message),
+            );
+            that.authFailures++;
+            var backoffMs = Math.min(30000 * Math.pow(2, that.authFailures - 1), 900000);
+            that.authBackoffUntil = Date.now() + backoffMs;
+            console.log(
+              "\x1b[33m%s\x1b[0m",
+              new Date().toLocaleString() +
+                " Pulse: Auth backoff " +
+                Math.round(backoffMs / 1000) +
+                "s (attempt " +
+                that.authFailures +
+                ")",
             );
             reject(new Error(`Authentication error: ${e.message || e}`));
           });
@@ -889,6 +943,8 @@ module.exports = pulse;
               new Date().toLocaleString() + " Pulse.sync: Sync Failed",
             );
           });
+      }).catch(function () {
+        // Login failed or in backoff — handled by login(), nothing to do here
       });
     } else {
       console.log(
