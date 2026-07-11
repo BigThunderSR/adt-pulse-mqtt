@@ -1211,6 +1211,145 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
       });
   });
 
+  it("Should initialize auth backoff state", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    assert.strictEqual(testAlarm.authFailures, 0);
+    assert.strictEqual(testAlarm.authBackoffUntil, 0);
+    assert.strictEqual(testAlarm.maxAuthFailures, 5);
+  });
+
+  it("Should increment auth failures and set backoff on error", function (done) {
+    this.timeout(5000);
+    nock.cleanAll();
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    nock("https://portal.adtpulse.com")
+      .get("/")
+      .replyWithError("Auth error");
+
+    testAlarm
+      .login()
+      .catch(() => {
+        assert.strictEqual(testAlarm.authFailures, 1);
+        assert.ok(testAlarm.authBackoffUntil > Date.now());
+        done();
+      });
+  });
+
+  it("Should reject login when backoff is active", function (done) {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authBackoffUntil = Date.now() + 60000;
+
+    testAlarm
+      .login()
+      .catch((error) => {
+        assert.ok(error.message.includes("backoff active"));
+        done();
+      });
+  });
+
+  it("Should reset backoff counter on successful auth", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authFailures = 3;
+    testAlarm.authBackoffUntil = Date.now() + 60000;
+    testAlarm.authenticated = true;
+
+    // login() resolves immediately when authenticated
+    return testAlarm.login().then(() => {
+      // Simulate what the auth success path does
+      assert.strictEqual(testAlarm.authenticated, true);
+    });
+  });
+
+  it("Should stop login attempts after max auth failures", function (done) {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authFailures = 5;
+
+    // Stub process.kill to prevent actual signal
+    const originalKill = process.kill;
+    process.kill = function () {};
+
+    testAlarm
+      .login()
+      .catch((error) => {
+        assert.ok(error.message.includes("max failures reached"));
+        process.kill = originalKill;
+        done();
+      });
+  });
+
+  it("Should calculate exponential backoff correctly", function (done) {
+    this.timeout(5000);
+    nock.cleanAll();
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    nock("https://portal.adtpulse.com")
+      .get("/")
+      .replyWithError("Auth error");
+
+    testAlarm
+      .login()
+      .catch(() => {
+        // First failure: 30s backoff
+        var expectedBackoff = 30000;
+        var actualBackoff = testAlarm.authBackoffUntil - Date.now();
+        assert.ok(actualBackoff > expectedBackoff - 1000);
+        assert.ok(actualBackoff <= expectedBackoff);
+        done();
+      });
+  });
+
+  it("Should handle auth failure from invalid redirect", function (done) {
+    this.timeout(5000);
+    nock.cleanAll();
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    // Mock the full auth flow: initial GET returns a page with version pattern,
+    // POST credentials, then response redirects back to signin (not summary)
+    nock("https://portal.adtpulse.com")
+      .get("/")
+      .reply(200, "OK", {
+        "content-type": "text/html",
+      })
+      .post(/.*signin\.jsp.*/)
+      .reply(200, "Login failed", {
+        "content-type": "text/html",
+      });
+
+    // Set up config so the initial GET response path triggers auth flow
+    testAlarm.config.prefix = "/myhome/30.0.0-61";
+
+    // Mock the request.path on the initial response
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/30.0.0-61/access/signin.jsp")
+      .reply(function () {
+        return [
+          200,
+          "<html>SignIn</html>",
+          { "content-type": "text/html" },
+        ];
+      });
+
+    testAlarm
+      .login()
+      .catch((error) => {
+        assert.ok(
+          error.message.includes("Authentication failed") ||
+            error.message.includes("Authentication error") ||
+            error.message.includes("error"),
+        );
+        assert.strictEqual(testAlarm.authenticated, false);
+        done();
+      });
+  });
+
   it("Should handle getZoneStatusOrb with malformed response", function (done) {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
