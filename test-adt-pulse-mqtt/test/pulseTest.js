@@ -1188,6 +1188,7 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
 
   it("Should handle login authentication errors", function (done) {
     this.timeout(5000); // Increase timeout
+    nock.cleanAll();
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
