@@ -89,10 +89,13 @@ module.exports = pulse;
           new Date().toLocaleString() +
             " Pulse: FATAL - " +
             this.maxAuthFailures +
-            " consecutive auth failures. Shutting down to prevent account lockout.",
+            " consecutive auth failures. All login attempts stopped to prevent account lockout." +
+            " Fix your credentials and restart the addon.",
         );
         clearInterval(this.pulseInterval);
-        process.exit(1);
+        reject(
+          new Error("Authentication permanently stopped - max failures reached"),
+        );
       } else if (Date.now() < this.authBackoffUntil) {
         var waitSec = Math.ceil((this.authBackoffUntil - Date.now()) / 1000);
         reject(
