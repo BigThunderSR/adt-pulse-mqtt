@@ -1,5 +1,16 @@
 # Changelog
 
+## 5.3.0b - Auth Failure Shutdown (2026-07-11)
+
+### 🐛 Bug Fixes
+
+- **Auto-shutdown on auth failure**: Process exits after 5 consecutive
+  authentication failures to prevent account lockout. With backoff
+  (30s, 60s, 2min, 5min), only 5 attempts over ~8.5 minutes before
+  shutdown. Addon shows as stopped in HA, making the issue obvious.
+
+---
+
 ## 5.3.0a - Auth Crash Loop Fix (2026-07-11)
 
 ### 🐛 Bug Fixes
