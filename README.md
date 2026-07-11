@@ -21,7 +21,7 @@ Integrates ADT Pulse with Home Assistant. You can also choose to expose ADT devi
 ### Quick Start for Local Testing
 
 1. **Setup**: Run `./test-local-setup.sh` to verify your environment
-2. **Configure**: Edit `local-config.json` with your ADT Pulse and MQTT settings  
+2. **Configure**: Edit `local-config.json` with your ADT Pulse and MQTT settings
 3. **Run**: Use `npm run start` to start the application locally
 
 See [LOCAL_TESTING.md](LOCAL_TESTING.md) for detailed instructions.
@@ -80,9 +80,26 @@ In most cases, only the mqtt_options are needed:
 
 In most cases, these options are sufficient. Alternatively, the mqtt_url can be specified instead which allows more advanced configurations (see <https://www.npmjs.com/package/mqtt#connect>).
 
-### Home Assistant Configuration
+### Home Assistant MQTT Auto-Discovery (Recommended)
 
-This add-on uses the Home Assistant integrations for MQTT Alarm Control Panel and MQTT Binary Sensor.
+This add-on supports [Home Assistant MQTT discovery](https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery) and can announce all entities automatically — no `configuration.yaml` editing required. As long as the MQTT integration is set up in Home Assistant, the following appear under a single **ADT Pulse** device after the add-on starts:
+
+- An **alarm control panel** entity supporting arm home / arm away / arm night / disarm (with `pending` and `triggered` states). Arm night requires a panel that supports night arming — if yours doesn't, the ADT portal rejects the command and the alarm state is unchanged
+- A **binary sensor** entity per zone, with the device class inferred from the sensor type (door, window, motion, sound, gas, smoke)
+
+Entities automatically show as **unavailable** if the add-on stops or crashes (via an MQTT Last Will and Testament message), and are re-announced whenever Home Assistant restarts.
+
+The related add-on options (defaults shown):
+
+- `ha_discovery`: `false` — set to `true` to enable auto-discovery
+- `ha_discovery_topic`: `homeassistant` — must match the `discovery_prefix` configured in Home Assistant's MQTT integration
+- `availability_topic`: `adt/availability` — topic used for online/offline availability
+
+> **Note:** If you previously configured the alarm panel or zone binary sensors manually in `configuration.yaml` (as described below), remove those entries or set `ha_discovery: false`, otherwise you will get duplicate entities.
+
+### Manual Home Assistant Configuration (Legacy)
+
+Alternatively, with `ha_discovery: false`, you can configure the Home Assistant integrations for MQTT Alarm Control Panel and MQTT Binary Sensor manually.
 
 To configure these, you must edit your configuration.yaml:
 
@@ -90,15 +107,15 @@ To add the control panel:
 
 ```yaml
 mqtt:
-   alarm_control_panel:
-     - name: "ADT Pulse"
-       unique_id: adt_pulse_alarm_panel  ##  Required to configure the panel using the HA GUI. Make sure this value is unique to your environment.
-       state_topic: "home/alarm/state"
-       command_topic: "home/alarm/cmd"
-       payload_arm_home: "arm_home"
-       payload_arm_away: "arm_away"
-       payload_disarm: "disarm"
-       code_arm_required: false  ## Needs to be added starting with HA Core 2024.6 ##
+  alarm_control_panel:
+    - name: "ADT Pulse"
+      unique_id: adt_pulse_alarm_panel ##  Required to configure the panel using the HA GUI. Make sure this value is unique to your environment.
+      state_topic: "home/alarm/state"
+      command_topic: "home/alarm/cmd"
+      payload_arm_home: "arm_home"
+      payload_arm_away: "arm_away"
+      payload_disarm: "disarm"
+      code_arm_required: false ## Needs to be added starting with HA Core 2024.6 ##
 ```
 
 After running the add-on, get a list all the zones found. There are a couple of ways to do this, but they all involve subscribing to the wildcard topic "adt/zones/#".
@@ -115,7 +132,7 @@ Once you know the names of MQTT topics for your zones, add the following to the 
 mqtt:
   binary_sensor:
     - name: "Kitchen Door"
-      unique_id: adt_pulse_kitchen_door  ##  Required to configure the sensor using the HA GUI. Make sure this value is unique to your environment.
+      unique_id: adt_pulse_kitchen_door ##  Required to configure the sensor using the HA GUI. Make sure this value is unique to your environment.
       state_topic: "adt/zone/Kitchen Door/state"
       payload_on: "devStatOpen"
       payload_off: "devStatOK"
@@ -129,7 +146,7 @@ This will provide basic support for door sensors. You can add additional binary 
 mqtt:
   binary_sensor:
     - name: "Kitchen Door Sensor Battery"
-      unique_id: adt_pulse_kitchen_door_sensor_battery  ##  Required to configure the sensor using the HA GUI. Make sure this value is unique to your environment.
+      unique_id: adt_pulse_kitchen_door_sensor_battery ##  Required to configure the sensor using the HA GUI. Make sure this value is unique to your environment.
       state_topic: "adt/zone/Kitchen Door/state"
       payload_on: "devStatLowBatt"
       payload_off: "devStatOK"
@@ -201,5 +218,6 @@ ADT Pulse contact (door, window, etc.) and motion detection devices may be expos
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
 [amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg
 [armhf-shield]: https://img.shields.io/badge/armhf-no-red.svg
+
 <!-- [armv7-shield]: https://img.shields.io/badge/armv7-yes-green.svg -->
 <!-- [i386-shield]: https://img.shields.io/badge/i386-yes-green.svg -->

@@ -1514,6 +1514,7 @@ describe("ADT Pulse Server MQTT Message Logic Tests", function () {
       let prev_state = "disarmed";
       if (currentState === "armed_home") prev_state = "stay";
       if (currentState === "armed_away") prev_state = "away";
+      if (currentState === "armed_night") prev_state = "night";
 
       switch (command) {
         case "arm_home":
@@ -1522,6 +1523,8 @@ describe("ADT Pulse Server MQTT Message Logic Tests", function () {
           return { newstate: "disarm", prev_state: prev_state };
         case "arm_away":
           return { newstate: "away", prev_state: prev_state };
+        case "arm_night":
+          return { newstate: "night", prev_state: prev_state };
         default:
           return null;
       }
@@ -1539,6 +1542,14 @@ describe("ADT Pulse Server MQTT Message Logic Tests", function () {
     const armAway = mapCommand("arm_away", "armed_home");
     assert.strictEqual(armAway.newstate, "away");
     assert.strictEqual(armAway.prev_state, "stay");
+
+    const armNight = mapCommand("arm_night", "disarmed");
+    assert.strictEqual(armNight.newstate, "night");
+    assert.strictEqual(armNight.prev_state, "disarmed");
+
+    const disarmFromNight = mapCommand("disarm", "armed_night");
+    assert.strictEqual(disarmFromNight.newstate, "disarm");
+    assert.strictEqual(disarmFromNight.prev_state, "night");
 
     // Test invalid command
     const invalid = mapCommand("invalid_command", "disarmed");
@@ -1588,6 +1599,10 @@ describe("ADT Pulse Server Status Mapping Tests", function () {
         mqtt_state = "armed_away";
         sm_alarm_value = "siren";
       }
+      if (statusLower.includes("armed night")) {
+        mqtt_state = "armed_night";
+        sm_alarm_value = "strobe";
+      }
       if (statusLower.includes("alarm")) {
         mqtt_state = "triggered";
         sm_alarm_value = "both";
@@ -1611,6 +1626,14 @@ describe("ADT Pulse Server Status Mapping Tests", function () {
     const armedAway = mapAlarmStatus("Armed Away");
     assert.strictEqual(armedAway.mqtt_state, "armed_away");
     assert.strictEqual(armedAway.sm_alarm_value, "siren");
+
+    const armedNight = mapAlarmStatus("Armed Night");
+    assert.strictEqual(armedNight.mqtt_state, "armed_night");
+    assert.strictEqual(armedNight.sm_alarm_value, "strobe");
+
+    const armedNightStay = mapAlarmStatus("Armed Night Stay");
+    assert.strictEqual(armedNightStay.mqtt_state, "armed_night");
+    assert.strictEqual(armedNightStay.sm_alarm_value, "strobe");
 
     const triggered = mapAlarmStatus("Alarm Triggered");
     assert.strictEqual(triggered.mqtt_state, "triggered");
