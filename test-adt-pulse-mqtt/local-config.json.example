@@ -20,5 +20,8 @@
   "alarm_command_topic": "home/alarm/cmd",
   "zone_state_topic": "adt/zone",
   "smartthings_topic": "smartthings",
-  "smartthings": false
+  "smartthings": false,
+  "ha_discovery": true,
+  "ha_discovery_topic": "homeassistant",
+  "availability_topic": "adt/availability"
 }

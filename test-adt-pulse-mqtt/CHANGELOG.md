@@ -1,5 +1,23 @@
 # Changelog
 
+## 5.3.0 - HA MQTT Auto-Discovery & Arm Night Mode (2026-07-10)
+
+### ✨ Features
+
+- **Home Assistant MQTT Auto-Discovery**: Alarm panel and zones are announced
+  to Home Assistant automatically when `ha_discovery: true` is set — no manual
+  `configuration.yaml` MQTT platform setup needed (@Danimal4326, #565)
+- **Arm Night Mode**: New `arm_night` MQTT command; "Armed Night" / "Armed Night
+  Stay" panel statuses reported as `armed_night` (@Danimal4326, #565)
+
+### New Options
+
+- `ha_discovery` (`false`): set to `true` to enable HA auto-discovery
+- `ha_discovery_topic` (`homeassistant`): discovery prefix
+- `availability_topic` (`adt/availability`): online/offline availability topic
+
+---
+
 ## 5.2.0 - Node.js 24 & Dependency Updates (2026-07-07)
 
 ### ⬆️ Node.js
