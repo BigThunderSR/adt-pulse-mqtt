@@ -1,36 +1,28 @@
 # Changelog
 
-## 5.3.0c - Auth Failure Handling (2026-07-11)
-
-### 🐛 Bug Fixes
-
-- **Authentication crash loop**: Fixed `JSON.stringify` on circular axios
-  request object that caused unhandled rejection crash on auth failure
-- **Account lockout prevention**: Added exponential backoff (30s, 60s, 2min,
-  5min) on repeated auth failures — only 5 attempts over ~8.5 minutes
-- **Idle on max failures**: After 5 consecutive failures, process stays
-  running but stops all login attempts. Prevents Docker restart loop.
-  Fix credentials and restart the addon manually to retry.
-- **Unhandled rejection**: Added `.catch()` on `login()` in `sync()` so
-  auth failures don't crash the process
-
----
-
-## 5.3.0 - HA MQTT Auto-Discovery & Arm Night Mode (2026-07-10)
+## 5.3.0 - HA MQTT Auto-Discovery & Arm Night Mode (2026-07-11)
 
 ### ✨ Features
 
-- **Home Assistant MQTT Auto-Discovery**: Alarm panel and zones are announced
-  to Home Assistant automatically when `ha_discovery: true` is set — no manual
-  `configuration.yaml` MQTT platform setup needed (@Danimal4326, #565)
-- **Arm Night Mode**: New `arm_night` MQTT command; "Armed Night" / "Armed Night
-  Stay" panel statuses reported as `armed_night` (@Danimal4326, #565)
+- **Home Assistant MQTT Auto-Discovery**: Alarm panel and zones announced
+  automatically when `ha_discovery: true` (@Danimal4326, #565)
+- **Arm Night Mode**: `arm_night` MQTT command; "Armed Night" statuses
+  reported as `armed_night` (@Danimal4326, #565)
 
-### New Options
+### 🐛 Fixes
 
-- `ha_discovery` (`false`): set to `true` to enable HA auto-discovery
-- `ha_discovery_topic` (`homeassistant`): discovery prefix
-- `availability_topic` (`adt/availability`): online/offline availability topic
+- Case-insensitive MQTT command matching (ARM_NIGHT, arm_night both work)
+- `ha_discovery` defaults to `false` (opt-in) across all config paths
+- LWT respects user-defined `will` in mqtt_connect_options
+- Prevent auth crash loop and account lockout after repeated auth failures
+
+### 🏗️ Infrastructure
+
+- CI: Skip Codacy upload for fork PRs
+
+### ⬆️ Dependencies
+
+- Updated all runtime and dev dependencies to latest versions
 
 ---
 

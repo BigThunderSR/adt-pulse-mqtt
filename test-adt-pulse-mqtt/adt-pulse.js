@@ -242,15 +242,15 @@ module.exports = pulse;
           .catch(function (e) {
             that.isAuthenticating = false;
             that.authenticated = false;
-            that.authFailures++;
-            var backoffMs = Math.min(30000 * Math.pow(2, that.authFailures - 1), 900000);
-            that.authBackoffUntil = Date.now() + backoffMs;
             console.log(
               "\x1b[31m%s\x1b[0m",
               new Date().toLocaleString() +
                 " Pulse: Authentication Error - " +
                 JSON.stringify(e.message),
             );
+            that.authFailures++;
+            var backoffMs = Math.min(30000 * Math.pow(2, that.authFailures - 1), 900000);
+            that.authBackoffUntil = Date.now() + backoffMs;
             console.log(
               "\x1b[33m%s\x1b[0m",
               new Date().toLocaleString() +

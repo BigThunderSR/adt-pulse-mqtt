@@ -1,5 +1,31 @@
 # Changelog
 
+## 5.3.0 - HA MQTT Auto-Discovery & Arm Night Mode (2026-07-11)
+
+### ✨ Features
+
+- **Home Assistant MQTT Auto-Discovery**: Alarm panel and zones announced
+  automatically when `ha_discovery: true` (@Danimal4326, #565)
+- **Arm Night Mode**: `arm_night` MQTT command; "Armed Night" statuses
+  reported as `armed_night` (@Danimal4326, #565)
+
+### 🐛 Fixes
+
+- Case-insensitive MQTT command matching (ARM_NIGHT, arm_night both work)
+- `ha_discovery` defaults to `false` (opt-in) across all config paths
+- LWT respects user-defined `will` in mqtt_connect_options
+- Prevent auth crash loop and account lockout after repeated auth failures
+
+### 🏗️ Infrastructure
+
+- CI: Skip Codacy upload for fork PRs
+
+### ⬆️ Dependencies
+
+- Updated all runtime and dev dependencies to latest versions
+
+---
+
 ## 5.2.0 - Node.js 24 & Dependency Updates (2026-07-07)
 
 ### ⬆️ Node.js
