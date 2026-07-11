@@ -1,5 +1,19 @@
 # Changelog
 
+## 5.3.0a - Auth Crash Loop Fix (2026-07-11)
+
+### 🐛 Bug Fixes
+
+- **Authentication crash loop**: Fixed `JSON.stringify` on circular axios
+  request object that caused unhandled rejection crash on auth failure
+- **Account lockout prevention**: Added exponential backoff (30s to 15min)
+  on repeated auth failures to prevent rapid retry loops from locking
+  the ADT Pulse account
+- **Unhandled rejection**: Added `.catch()` on `login()` in `sync()` so
+  auth failures don't crash the process
+
+---
+
 ## 5.3.0 - HA MQTT Auto-Discovery & Arm Night Mode (2026-07-10)
 
 ### ✨ Features
