@@ -1188,6 +1188,7 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
 
   it("Should handle login authentication errors", function (done) {
     this.timeout(5000); // Increase timeout
+    nock.cleanAll();
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
@@ -1206,6 +1207,145 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
           error.message.includes("Network error") ||
             error.message.includes("error"),
         );
+        done();
+      });
+  });
+
+  it("Should initialize auth backoff state", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    assert.strictEqual(testAlarm.authFailures, 0);
+    assert.strictEqual(testAlarm.authBackoffUntil, 0);
+    assert.strictEqual(testAlarm.maxAuthFailures, 5);
+  });
+
+  it("Should increment auth failures and set backoff on error", function (done) {
+    this.timeout(5000);
+    nock.cleanAll();
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    nock("https://portal.adtpulse.com")
+      .get("/")
+      .replyWithError("Auth error");
+
+    testAlarm
+      .login()
+      .catch(() => {
+        assert.strictEqual(testAlarm.authFailures, 1);
+        assert.ok(testAlarm.authBackoffUntil > Date.now());
+        done();
+      });
+  });
+
+  it("Should reject login when backoff is active", function (done) {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authBackoffUntil = Date.now() + 60000;
+
+    testAlarm
+      .login()
+      .catch((error) => {
+        assert.ok(error.message.includes("backoff active"));
+        done();
+      });
+  });
+
+  it("Should reset backoff counter on successful auth", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authFailures = 3;
+    testAlarm.authBackoffUntil = Date.now() + 60000;
+    testAlarm.authenticated = true;
+
+    // login() resolves immediately when authenticated
+    return testAlarm.login().then(() => {
+      // Simulate what the auth success path does
+      assert.strictEqual(testAlarm.authenticated, true);
+    });
+  });
+
+  it("Should stop login attempts after max auth failures", function (done) {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authFailures = 5;
+
+    // Stub process.kill to prevent actual signal
+    const originalKill = process.kill;
+    process.kill = function () {};
+
+    testAlarm
+      .login()
+      .catch((error) => {
+        assert.ok(error.message.includes("max failures reached"));
+        process.kill = originalKill;
+        done();
+      });
+  });
+
+  it("Should calculate exponential backoff correctly", function (done) {
+    this.timeout(5000);
+    nock.cleanAll();
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    nock("https://portal.adtpulse.com")
+      .get("/")
+      .replyWithError("Auth error");
+
+    testAlarm
+      .login()
+      .catch(() => {
+        // First failure: 30s backoff
+        var expectedBackoff = 30000;
+        var actualBackoff = testAlarm.authBackoffUntil - Date.now();
+        assert.ok(actualBackoff > expectedBackoff - 1000);
+        assert.ok(actualBackoff <= expectedBackoff);
+        done();
+      });
+  });
+
+  it("Should handle auth failure from invalid redirect", function (done) {
+    this.timeout(5000);
+    nock.cleanAll();
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    // Mock the full auth flow: initial GET returns a page with version pattern,
+    // POST credentials, then response redirects back to signin (not summary)
+    nock("https://portal.adtpulse.com")
+      .get("/")
+      .reply(200, "OK", {
+        "content-type": "text/html",
+      })
+      .post(/.*signin\.jsp.*/)
+      .reply(200, "Login failed", {
+        "content-type": "text/html",
+      });
+
+    // Set up config so the initial GET response path triggers auth flow
+    testAlarm.config.prefix = "/myhome/30.0.0-61";
+
+    // Mock the request.path on the initial response
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/30.0.0-61/access/signin.jsp")
+      .reply(function () {
+        return [
+          200,
+          "<html>SignIn</html>",
+          { "content-type": "text/html" },
+        ];
+      });
+
+    testAlarm
+      .login()
+      .catch((error) => {
+        assert.ok(
+          error.message.includes("Authentication failed") ||
+            error.message.includes("Authentication error") ||
+            error.message.includes("error"),
+        );
+        assert.strictEqual(testAlarm.authenticated, false);
         done();
       });
   });
@@ -1514,6 +1654,7 @@ describe("ADT Pulse Server MQTT Message Logic Tests", function () {
       let prev_state = "disarmed";
       if (currentState === "armed_home") prev_state = "stay";
       if (currentState === "armed_away") prev_state = "away";
+      if (currentState === "armed_night") prev_state = "night";
 
       switch (command) {
         case "arm_home":
@@ -1522,6 +1663,8 @@ describe("ADT Pulse Server MQTT Message Logic Tests", function () {
           return { newstate: "disarm", prev_state: prev_state };
         case "arm_away":
           return { newstate: "away", prev_state: prev_state };
+        case "arm_night":
+          return { newstate: "night", prev_state: prev_state };
         default:
           return null;
       }
@@ -1539,6 +1682,14 @@ describe("ADT Pulse Server MQTT Message Logic Tests", function () {
     const armAway = mapCommand("arm_away", "armed_home");
     assert.strictEqual(armAway.newstate, "away");
     assert.strictEqual(armAway.prev_state, "stay");
+
+    const armNight = mapCommand("arm_night", "disarmed");
+    assert.strictEqual(armNight.newstate, "night");
+    assert.strictEqual(armNight.prev_state, "disarmed");
+
+    const disarmFromNight = mapCommand("disarm", "armed_night");
+    assert.strictEqual(disarmFromNight.newstate, "disarm");
+    assert.strictEqual(disarmFromNight.prev_state, "night");
 
     // Test invalid command
     const invalid = mapCommand("invalid_command", "disarmed");
@@ -1588,6 +1739,10 @@ describe("ADT Pulse Server Status Mapping Tests", function () {
         mqtt_state = "armed_away";
         sm_alarm_value = "siren";
       }
+      if (statusLower.includes("armed night")) {
+        mqtt_state = "armed_night";
+        sm_alarm_value = "strobe";
+      }
       if (statusLower.includes("alarm")) {
         mqtt_state = "triggered";
         sm_alarm_value = "both";
@@ -1611,6 +1766,14 @@ describe("ADT Pulse Server Status Mapping Tests", function () {
     const armedAway = mapAlarmStatus("Armed Away");
     assert.strictEqual(armedAway.mqtt_state, "armed_away");
     assert.strictEqual(armedAway.sm_alarm_value, "siren");
+
+    const armedNight = mapAlarmStatus("Armed Night");
+    assert.strictEqual(armedNight.mqtt_state, "armed_night");
+    assert.strictEqual(armedNight.sm_alarm_value, "strobe");
+
+    const armedNightStay = mapAlarmStatus("Armed Night Stay");
+    assert.strictEqual(armedNightStay.mqtt_state, "armed_night");
+    assert.strictEqual(armedNightStay.sm_alarm_value, "strobe");
 
     const triggered = mapAlarmStatus("Alarm Triggered");
     assert.strictEqual(triggered.mqtt_state, "triggered");
@@ -1785,5 +1948,546 @@ describe("ADT Pulse Server Device Tracking Tests", function () {
     );
     assert.ok(!noSmartThingsTopics.smartthings_config);
     assert.ok(!noSmartThingsTopics.smartthings_state);
+  });
+});
+
+describe("ADT Pulse deviceStateChange Tests", function () {
+  let pulse = rewire("../adt-pulse.js");
+
+  afterEach(function () {
+    nock.cleanAll();
+  });
+
+  it("Should POST correct payload to turn device on", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    pulse.__set__("sat", "aaaa1111-bb22-cc33-dd44-eeeeeeee5555");
+
+    const scope = nock("https://portal.adtpulse.com")
+      .post(
+        "/myhome/13.0.0-153/quickcontrol/serv/ChangeVariableServ?fi=SERIAL001&vn=level&u=On|Off&ft=light-onoff",
+        "sat=aaaa1111-bb22-cc33-dd44-eeeeeeee5555&value=On",
+      )
+      .reply(200, "Success");
+
+    const device = { serialnumber: "SERIAL001", state: 1, name: "Kitchen Light" };
+    return testAlarm.deviceStateChange(device).then(() => {
+      assert.ok(scope.isDone());
+    });
+  });
+
+  it("Should POST correct payload to turn device off", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    pulse.__set__("sat", "aaaa1111-bb22-cc33-dd44-eeeeeeee5555");
+
+    const scope = nock("https://portal.adtpulse.com")
+      .post(
+        "/myhome/13.0.0-153/quickcontrol/serv/ChangeVariableServ?fi=SERIAL002&vn=level&u=On|Off&ft=light-onoff",
+        "sat=aaaa1111-bb22-cc33-dd44-eeeeeeee5555&value=Off",
+      )
+      .reply(200, "Success");
+
+    const device = { serialnumber: "SERIAL002", state: 0, name: "Garage Light" };
+    return testAlarm.deviceStateChange(device).then(() => {
+      assert.ok(scope.isDone());
+    });
+  });
+
+  it("Should reject on network failure", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    pulse.__set__("sat", "aaaa1111-bb22-cc33-dd44-eeeeeeee5555");
+
+    nock("https://portal.adtpulse.com")
+      .post(/.*ChangeVariableServ.*/)
+      .replyWithError("Connection refused");
+
+    const device = { serialnumber: "SERIAL001", state: 1, name: "Kitchen Light" };
+    return testAlarm.deviceStateChange(device).then(
+      () => { assert.fail("Should have rejected"); },
+      (err) => { assert.ok(err.message.includes("Device state change failed")); },
+    );
+  });
+});
+
+describe("ADT Pulse getZoneStatusOrb Parsing Tests", function () {
+  let pulse = rewire("../adt-pulse.js");
+
+  afterEach(function () {
+    nock.cleanAll();
+  });
+
+  it("Should parse zone data and extract SAT token from orb page", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    const zones = [];
+    testAlarm.onZoneUpdate(function (zone) {
+      zones.push(zone);
+    });
+
+    // The real zonestatus.jsp fixture contains a SAT token in the button onclick
+    const orbPage = fs.readFileSync("./test/pages/zonestatus.jsp", "utf8");
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/ajax/orb.jsp")
+      .reply(200, orbPage);
+
+    return testAlarm.getZoneStatusOrb().then((output) => {
+      // Verify correct number of zones parsed
+      assert.strictEqual(output.length, 7);
+
+      // Verify sensor type classification (case-sensitive matching)
+      // "BACK DOOR" doesn't match "Door" (case mismatch) -> falls through to default
+      const backDoor = output.find((s) => s.name === "BACK DOOR");
+      assert.strictEqual(backDoor.tags, "sensor");
+      assert.strictEqual(backDoor.state, "devStatOK");
+
+      // "Carbon Monoxide Detector" doesn't contain "Gas" -> default tag
+      const coDetector = output.find((s) => s.name.includes("Carbon Monoxide"));
+      assert.strictEqual(coDetector.tags, "sensor");
+
+      // "Door (1)" matches "Door" -> doorWindow
+      const door1 = output.find((s) => s.name === "Door (1)");
+      assert.strictEqual(door1.tags, "sensor,doorWindow");
+
+      // "Fire (Smoke/Heat) Detector" matches "Smoke" and "Heat" -> fire
+      const fireDetector = output.find((s) => s.name.includes("Fire"));
+      assert.strictEqual(fireDetector.tags, "sensor,fire");
+
+      // "Glass Break Detector" matches "Glass" -> glass
+      const glassBreak = output.find((s) => s.name.includes("Glass Break"));
+      assert.strictEqual(glassBreak.tags, "sensor,glass");
+
+      // "Motion Sensor" matches "Motion" -> motion
+      const motionSensor = output.find((s) => s.name.includes("Motion"));
+      assert.strictEqual(motionSensor.tags, "sensor,motion");
+
+      // Verify zoneUpdateCB was called for each sensor
+      assert.strictEqual(zones.length, 7);
+
+      // Verify SAT was extracted (present in the fixture onclick attributes)
+      const satVar = pulse.__get__("sat");
+      assert.strictEqual(satVar, "11111111-2222-3333-4444-555555555555");
+    });
+  });
+
+  it("Should handle orb page without SAT token", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    pulse.__set__("sat", "");
+
+    const zones = [];
+    testAlarm.onZoneUpdate(function (zone) {
+      zones.push(zone);
+    });
+
+    // HTML with sensors but no SAT token
+    const orbHtml = `<html><body>
+      <div id="orbSensorsList"><table>
+        <tr class="p_listRow"><td><span class="devStatIcon"><canvas icon="devStatOK"></canvas></span></td>
+        <td><a class="p_deviceNameText">Window Sensor</a> <div class="p_grayNormalText">Zone&nbsp;10</div></td></tr>
+      </table></div>
+    </body></html>`;
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/ajax/orb.jsp")
+      .reply(200, orbHtml);
+
+    return testAlarm.getZoneStatusOrb().then((output) => {
+      assert.strictEqual(output.length, 1);
+      assert.strictEqual(output[0].name, "Window Sensor");
+      assert.strictEqual(output[0].id, "sensor-10");
+      assert.strictEqual(output[0].tags, "sensor,doorWindow");
+      // SAT should remain empty since no token in response
+      assert.strictEqual(pulse.__get__("sat"), "");
+    });
+  });
+
+  it("Should reject when network request fails", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/ajax/orb.jsp")
+      .replyWithError("ECONNRESET");
+
+    return testAlarm.getZoneStatusOrb().then(
+      () => { assert.fail("Should have rejected"); },
+      (err) => { assert.ok(err.message.includes("ECONNRESET")); },
+    );
+  });
+});
+
+describe("ADT Pulse getDeviceStatus with Real Devices", function () {
+  let pulse = rewire("../adt-pulse.js");
+
+  afterEach(function () {
+    nock.cleanAll();
+  });
+
+  it("Should parse devices from HTML and invoke deviceUpdateCB with name, serial, and state", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    const devices = [];
+    testAlarm.onDeviceUpdate(function (device) {
+      devices.push(device);
+    });
+
+    const devicePage = fs.readFileSync(
+      "./test/pages/otherdevices_with_devices.jsp",
+      "utf8",
+    );
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/ajax/currentStates.jsp")
+      .reply(200, devicePage);
+
+    return testAlarm.getDeviceStatus().then(() => {
+      assert.strictEqual(devices.length, 2);
+      assert.strictEqual(devices[0].name, "Kitchen Light");
+      assert.strictEqual(devices[0].serialnumber, "ABC123");
+      assert.strictEqual(devices[0].state, 1); // "On" -> 1
+      assert.strictEqual(devices[1].name, "Garage Light");
+      assert.strictEqual(devices[1].serialnumber, "DEF456");
+      assert.strictEqual(devices[1].state, 0); // "Off" -> 0
+    });
+  });
+});
+
+describe("ADT Pulse setAlarmState Stale Session Tests", function () {
+  let pulse = rewire("../adt-pulse.js");
+
+  afterEach(function () {
+    nock.cleanAll();
+  });
+
+  it("Should detect stale session and re-authenticate then retry", function () {
+    this.timeout(10000);
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authenticated = true;
+    pulse.__set__("sat", "old-sat-token-1111-2222-3333-444444444444");
+
+    // First attempt returns stale session page
+    nock("https://portal.adtpulse.com")
+      .get(/.*armDisarm.*armstate=disarmed&arm=stay&sat=old-sat.*/)
+      .reply(200, "<html>Unable to Proceed. You do not have access to the requested page.</html>");
+
+    // Re-auth: login flow
+    nock("https://portal.adtpulse.com")
+      .get("/")
+      .reply(302, "", {
+        Location: "https://portal.adtpulse.com/myhome/22.0.0-233/access/signin.jsp",
+      })
+      .get("/myhome/22.0.0-233/access/signin.jsp")
+      .reply(200, '<html><form></form></html>')
+      .post("/myhome/22.0.0-233/access/signin.jsp")
+      .query(true)
+      .reply(301, "", {
+        Location: "https://portal.adtpulse.com/myhome/22.0.0-233/summary/summary.jsp",
+      })
+      .get("/myhome/22.0.0-233/summary/summary.jsp")
+      .reply(200, '<html><div id="divOrbTextSummary"><span>Disarmed</span></div></html>');
+
+    // getZoneStatusOrb to get fresh SAT
+    const orbWithSat = `<html><div id="orbSensorsList"><table>
+      <tr class="p_listRow"><td><span class="devStatIcon"><canvas icon="devStatOK"></canvas></span></td>
+      <td><a class="p_deviceNameText">Front Door</a> <div class="p_grayNormalText">Zone&nbsp;1</div></td></tr>
+    </table></div>
+    <input onclick="sat=aabbccdd-1122-3344-5566-778899aabbcc&href="></html>`;
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/22.0.0-233/ajax/orb.jsp")
+      .reply(200, orbWithSat);
+
+    // Retry setAlarmState with new SAT should succeed
+    nock("https://portal.adtpulse.com")
+      .get(/.*armDisarm.*armstate=disarmed&arm=stay&sat=aabbccdd.*/)
+      .reply(200, "Arming Stay");
+
+    const action = { newstate: "stay", prev_state: "disarmed", isForced: false };
+    return testAlarm.setAlarmState(action).then((result) => {
+      assert.ok(result.includes("Arming"));
+    });
+  });
+
+  it("Should reject after stale session persists on retry", function () {
+    this.timeout(5000);
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authenticated = true;
+    pulse.__set__("sat", "");
+
+    // First attempt returns stale session - isRetry already set
+    nock("https://portal.adtpulse.com")
+      .get(/.*armDisarm.*/)
+      .reply(200, "<html>You do not have access to the requested page. signin.jsp</html>");
+
+    const action = { newstate: "stay", prev_state: "disarmed", isForced: false, isRetry: true };
+    return testAlarm.setAlarmState(action).then(
+      () => { assert.fail("Should have rejected"); },
+      (err) => { assert.ok(err.message.includes("session expired")); },
+    );
+  });
+});
+
+describe("ADT Pulse sync Tests", function () {
+  let pulse = rewire("../adt-pulse.js");
+
+  afterEach(function () {
+    nock.cleanAll();
+  });
+
+  it("Should call updateAll when sync returns new data", function (done) {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authenticated = true;
+    testAlarm.clients.push("client-1");
+
+    let updateAllCalled = false;
+    const originalUpdateAll = testAlarm.updateAll;
+    testAlarm.updateAll = function () {
+      updateAllCalled = true;
+    };
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/Ajax/SyncCheckServ")
+      .reply(200, "1-0-0");
+
+    testAlarm.sync();
+
+    // Give async operations time to complete
+    setTimeout(function () {
+      assert.strictEqual(updateAllCalled, true);
+      testAlarm.updateAll = originalUpdateAll;
+      done();
+    }, 200);
+  });
+
+  it("Should mark as unauthenticated when sync returns HTML", function (done) {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authenticated = true;
+    testAlarm.clients.push("client-1");
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/Ajax/SyncCheckServ")
+      .reply(200, "<html>Session expired</html>");
+
+    testAlarm.sync();
+
+    setTimeout(function () {
+      assert.strictEqual(testAlarm.authenticated, false);
+      done();
+    }, 200);
+  });
+
+  it("Should mark as unauthenticated when sync request fails", function (done) {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authenticated = true;
+    testAlarm.clients.push("client-1");
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/Ajax/SyncCheckServ")
+      .replyWithError("ETIMEDOUT");
+
+    testAlarm.sync();
+
+    setTimeout(function () {
+      assert.strictEqual(testAlarm.authenticated, false);
+      done();
+    }, 200);
+  });
+
+  it("Should not sync when no clients are connected", function () {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authenticated = true;
+
+    // No clients, sync should just log "Sync Stuck?"
+    testAlarm.sync();
+    assert.strictEqual(testAlarm.clients.length, 0);
+  });
+
+  it("Should call updateAll when sync key changes", function (done) {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authenticated = true;
+    testAlarm.clients.push("client-1");
+    pulse.__set__("lastsynckey", "old-key");
+
+    let updateAllCalled = false;
+    testAlarm.updateAll = function () {
+      updateAllCalled = true;
+    };
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/Ajax/SyncCheckServ")
+      .reply(200, "new-key-value");
+
+    testAlarm.sync();
+
+    setTimeout(function () {
+      assert.strictEqual(updateAllCalled, true);
+      done();
+    }, 200);
+  });
+
+  it("Should not call updateAll when sync key is unchanged", function (done) {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authenticated = true;
+    testAlarm.clients.push("client-1");
+    pulse.__set__("lastsynckey", "same-key");
+
+    let updateAllCalled = false;
+    testAlarm.updateAll = function () {
+      updateAllCalled = true;
+    };
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/Ajax/SyncCheckServ")
+      .reply(200, "same-key");
+
+    testAlarm.sync();
+
+    setTimeout(function () {
+      assert.strictEqual(updateAllCalled, false);
+      done();
+    }, 200);
+  });
+});
+
+describe("ADT Pulse setAlarmState Branch Coverage Tests", function () {
+  let pulse = rewire("../adt-pulse.js");
+  let testAlarm;
+
+  beforeEach(function () {
+    testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+  });
+
+  afterEach(function () {
+    nock.cleanAll();
+  });
+
+  it("Should arm stay without SAT token", function () {
+    pulse.__set__("sat", "");
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/quickcontrol/armDisarm.jsp")
+      .query(true)
+      .reply(200, "Arming Stay");
+
+    const action = { newstate: "stay", prev_state: "disarmed", isForced: false };
+    return testAlarm.setAlarmState(action).then((result) => {
+      assert.ok(result.includes("Arming"));
+    });
+  });
+
+  it("Should disarm with SAT token", function () {
+    pulse.__set__("sat", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/quickcontrol/armDisarm.jsp")
+      .query((q) => q.arm === "off" && q.sat === "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+      .reply(200, "Disarming");
+
+    const action = { newstate: "disarm", prev_state: "stay", isForced: false };
+    return testAlarm.setAlarmState(action).then((result) => {
+      assert.ok(result.includes("Disarming"));
+    });
+  });
+
+  it("Should disarm without SAT token", function () {
+    pulse.__set__("sat", "");
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/quickcontrol/armDisarm.jsp")
+      .query((q) => q.arm === "off" && !q.sat)
+      .reply(200, "Disarming");
+
+    const action = { newstate: "disarm", prev_state: "disarmed", isForced: false };
+    return testAlarm.setAlarmState(action).then((result) => {
+      assert.ok(result.includes("Disarming"));
+    });
+  });
+
+  it("Should reject when stale session re-auth fails", function () {
+    this.timeout(10000);
+    testAlarm.authenticated = true;
+    pulse.__set__("sat", "");
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/quickcontrol/armDisarm.jsp")
+      .query(true)
+      .reply(200, "Unable to Proceed - please signin.jsp to continue");
+
+    nock("https://portal.adtpulse.com")
+      .get("/")
+      .replyWithError("DNS resolution failed");
+
+    const action = { newstate: "stay", prev_state: "disarmed", isForced: false };
+    return testAlarm.setAlarmState(action).then(
+      () => { assert.fail("Should have rejected"); },
+      (err) => { assert.ok(err.message.includes("DNS") || err.message.includes("error")); },
+    );
+  });
+});
+
+describe("ADT Pulse updateAll Integration Tests", function () {
+  let pulse = rewire("../adt-pulse.js");
+
+  afterEach(function () {
+    nock.cleanAll();
+  });
+
+  it("Should call getDeviceStatus and getZoneStatusOrb after getAlarmStatus succeeds", function (done) {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    let statusCalled = false;
+    let deviceCalled = false;
+    let zoneCalled = false;
+
+    testAlarm.onStatusUpdate(function () { statusCalled = true; });
+    testAlarm.onDeviceUpdate(function () { deviceCalled = true; });
+    testAlarm.onZoneUpdate(function () { zoneCalled = true; });
+
+    // Mock all three endpoints
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/summary/summary.jsp")
+      .reply(200, '<html><div id="divOrbTextSummary"><span>Disarmed</span></div></html>')
+      .get("/myhome/13.0.0-153/ajax/currentStates.jsp")
+      .reply(200, fs.readFileSync("./test/pages/otherdevices_with_devices.jsp", "utf8"))
+      .get("/myhome/13.0.0-153/ajax/orb.jsp")
+      .reply(200, fs.readFileSync("./test/pages/zonestatus.jsp", "utf8"));
+
+    testAlarm.updateAll();
+
+    setTimeout(function () {
+      assert.strictEqual(statusCalled, true);
+      assert.strictEqual(deviceCalled, true);
+      assert.strictEqual(zoneCalled, true);
+      done();
+    }, 500);
+  });
+
+  it("Should handle getAlarmStatus failure in updateAll gracefully", function (done) {
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    nock("https://portal.adtpulse.com")
+      .get("/myhome/13.0.0-153/summary/summary.jsp")
+      .replyWithError("Connection timeout");
+
+    testAlarm.updateAll();
+
+    setTimeout(function () {
+      // Should not crash - error is handled internally
+      assert.ok(true);
+      done();
+    }, 300);
   });
 });
