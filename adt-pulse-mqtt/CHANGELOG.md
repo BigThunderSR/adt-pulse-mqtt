@@ -1,5 +1,17 @@
 # Changelog
 
+## 5.3.1 - Dependency Updates & Test Coverage (2026-08-19)
+
+### 🏗️ Infrastructure
+
+- Test coverage improvements
+
+### ⬆️ Dependencies
+
+- Updated all runtime and dev dependencies to latest versions
+
+---
+
 ## 5.3.0 - HA MQTT Auto-Discovery & Arm Night Mode (2026-07-11)
 
 ### ✨ Features
