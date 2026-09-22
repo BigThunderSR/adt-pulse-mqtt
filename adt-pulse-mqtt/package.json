@@ -22,7 +22,7 @@
     "axios": "^1.19.0",
     "axios-cookiejar-support": "^7.0.0",
     "cheerio": "^1.2.0",
-    "dotenv": "^17.4.2",
+    "dotenv": "^18.0.1",
     "glob-parent": "^6.0.2",
     "lodash": "^4.18.1",
     "mqtt": "^5.15.2",
