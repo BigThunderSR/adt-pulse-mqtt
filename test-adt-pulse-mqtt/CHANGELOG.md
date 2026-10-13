@@ -1,5 +1,24 @@
 # Changelog
 
+## 5.4.0 - Network Outage Resilience (2026-10-12)
+
+### ✨ Features
+
+- Entities are marked `unavailable` during an extended network outage or after
+  repeated authentication failures, so a silently failing add-on is now visible
+  in Home Assistant (#644)
+- New **Connection** diagnostic sensor reporting `connected` / `backoff` /
+  `fatal` with the last error message, configurable via the new
+  `connection_state_topic` option (#644)
+
+### 🐛 Fixes
+
+- Network errors (timeouts, DNS failures) during login are no longer counted as
+  authentication failures, so an extended ISP outage no longer disables the
+  add-on until a manual restart (#644)
+
+---
+
 ## 5.3.1 - Dependency Updates & Test Coverage (2026-08-19)
 
 ### 🏗️ Infrastructure

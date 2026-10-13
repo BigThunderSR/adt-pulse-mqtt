@@ -16,6 +16,50 @@ var lastsynckey = "";
 var deviceUpdateCB = function () {};
 var zoneUpdateCB = function () {};
 var statusUpdateCB = function () {};
+var connectionStateCB = function () {};
+
+// Transport-level error codes that indicate a network/connectivity problem
+// (outage, DNS failure, timeout) rather than a credential rejection. These
+// must NOT count toward the FATAL account-lockout guard.
+var TRANSIENT_ERROR_CODES = [
+  "ETIMEDOUT",
+  "ECONNABORTED", // axios request timeout
+  "EAI_AGAIN",
+  "ENOTFOUND",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "EPIPE",
+];
+
+// A request error is transient when it never produced an HTTP response, i.e.
+// the request failed at the network layer (DNS/timeout/connection refused).
+// ADT credential rejections are delivered as a successful HTTP response that
+// redirects back to signin, so they are handled on the response path instead.
+function isTransientNetworkError(e) {
+  if (!e) return false;
+  if (e.response) return false;
+  if (e.code && TRANSIENT_ERROR_CODES.indexOf(e.code) !== -1) return true;
+  if (typeof e.message === "string" && /timeout/i.test(e.message)) return true;
+  // No HTTP response at all -> treat as a transient connectivity failure.
+  return true;
+}
+
+// Notify the host (server.js) of connection-state transitions so it can
+// reflect availability in MQTT. state is "connected" | "backoff" | "fatal".
+function emitConnectionState(state, detail) {
+  try {
+    connectionStateCB(state, detail || {});
+  } catch (cbErr) {
+    console.log(
+      "\x1b[31m%s\x1b[0m",
+      new Date().toLocaleString() +
+        " Pulse: connectionState callback error - " +
+        (cbErr.message || cbErr),
+    );
+  }
+}
 
 const pulse = function (username = "", password = "", fingerprint = "") {
   this.authenticated = false;
@@ -46,6 +90,9 @@ const pulse = function (username = "", password = "", fingerprint = "") {
   this.authFailures = 0;
   this.authBackoffUntil = 0;
   this.maxAuthFailures = 5;
+  // Transient network failures (outage/DNS/timeout). Tracked separately so an
+  // extended outage never trips the FATAL credential-lockout guard.
+  this.networkFailures = 0;
 };
 
 module.exports = pulse;
@@ -93,8 +140,14 @@ module.exports = pulse;
             " Fix your credentials and restart the addon.",
         );
         clearInterval(this.pulseInterval);
+        emitConnectionState("fatal", {
+          message: "Authentication permanently stopped - max failures reached",
+          attempt: this.authFailures,
+        });
         reject(
-          new Error("Authentication permanently stopped - max failures reached"),
+          new Error(
+            "Authentication permanently stopped - max failures reached",
+          ),
         );
       } else if (Date.now() < this.authBackoffUntil) {
         var waitSec = Math.ceil((this.authBackoffUntil - Date.now()) / 1000);
@@ -213,7 +266,10 @@ module.exports = pulse;
               );
               that.authFailures++;
               // Backoff: 30s, 60s, 2min, 5min, max 15min
-              var backoffMs = Math.min(30000 * Math.pow(2, that.authFailures - 1), 900000);
+              var backoffMs = Math.min(
+                30000 * Math.pow(2, that.authFailures - 1),
+                900000,
+              );
               that.authBackoffUntil = Date.now() + backoffMs;
               console.log(
                 "\x1b[33m%s\x1b[0m",
@@ -224,17 +280,27 @@ module.exports = pulse;
                   that.authFailures +
                   ")",
               );
+              emitConnectionState(
+                that.authFailures >= that.maxAuthFailures ? "fatal" : "backoff",
+                {
+                  message: "Authentication failed - invalid redirect response",
+                  attempt: that.authFailures,
+                  credential: true,
+                },
+              );
               reject(
                 new Error("Authentication failed - invalid redirect response"),
               );
             } else {
               that.authenticated = true;
               that.authFailures = 0;
+              that.networkFailures = 0;
               that.authBackoffUntil = 0;
               console.log(
                 "\x1b[32m%s\x1b[0m",
                 new Date().toLocaleString() + " Pulse: Authentication Success",
               );
+              emitConnectionState("connected", {});
               resolve();
               that.updateAll.call(that);
             }
@@ -248,8 +314,45 @@ module.exports = pulse;
                 " Pulse: Authentication Error - " +
                 JSON.stringify(e.message),
             );
+
+            if (isTransientNetworkError(e)) {
+              // Network/connectivity failure - ADT never rejected the
+              // credentials. Back off and keep retrying indefinitely without
+              // counting toward the FATAL account-lockout guard.
+              that.networkFailures++;
+              var netBackoffMs = Math.min(
+                30000 * Math.pow(2, that.networkFailures - 1),
+                900000,
+              );
+              that.authBackoffUntil = Date.now() + netBackoffMs;
+              console.log(
+                "\x1b[33m%s\x1b[0m",
+                new Date().toLocaleString() +
+                  " Pulse: Network error (transient) - will keep retrying. Backoff " +
+                  Math.round(netBackoffMs / 1000) +
+                  "s (network attempt " +
+                  that.networkFailures +
+                  ")",
+              );
+              emitConnectionState("backoff", {
+                message: e.message || String(e),
+                attempt: that.networkFailures,
+                network: true,
+              });
+              reject(
+                new Error(
+                  `Authentication network error (transient): ${e.message || e}`,
+                ),
+              );
+              return;
+            }
+
+            // Non-transient error (HTTP response received) - counts toward FATAL.
             that.authFailures++;
-            var backoffMs = Math.min(30000 * Math.pow(2, that.authFailures - 1), 900000);
+            var backoffMs = Math.min(
+              30000 * Math.pow(2, that.authFailures - 1),
+              900000,
+            );
             that.authBackoffUntil = Date.now() + backoffMs;
             console.log(
               "\x1b[33m%s\x1b[0m",
@@ -259,6 +362,14 @@ module.exports = pulse;
                 "s (attempt " +
                 that.authFailures +
                 ")",
+            );
+            emitConnectionState(
+              that.authFailures >= that.maxAuthFailures ? "fatal" : "backoff",
+              {
+                message: e.message || String(e),
+                attempt: that.authFailures,
+                credential: true,
+              },
             );
             reject(new Error(`Authentication error: ${e.message || e}`));
           });
@@ -526,6 +637,9 @@ module.exports = pulse;
     (this.onStatusUpdate = function (updateCallback) {
       statusUpdateCB = updateCallback;
     }),
+    (this.onConnectionState = function (updateCallback) {
+      connectionStateCB = updateCallback;
+    }),
     // not tested
     (this.deviceStateChange = function (device) {
       console.log(
@@ -787,9 +901,7 @@ module.exports = pulse;
             var isStaleSession =
               typeof response.data === "string" &&
               (response.data.includes("Unable to Proceed") ||
-                response.data.includes(
-                  "do not have access to the requested",
-                ) ||
+                response.data.includes("do not have access to the requested") ||
                 response.data.includes("signin.jsp"));
 
             if (isStaleSession && !action.isRetry) {
@@ -906,46 +1018,51 @@ module.exports = pulse;
   this.sync = function () {
     if (this.clients.length && !this.isAuthenticating) {
       var that = this;
-      this.login().then(function () {
-        client
-          .get(that.config.baseUrl + that.config.prefix + that.config.syncURI, {
-            headers: {
-              "User-Agent": ua,
-              Referer:
-                that.config.baseUrl +
-                that.config.prefix +
-                that.config.summaryURI,
-            },
-          })
-          .then(function (response) {
-            console.log(
-              new Date().toLocaleString() + " Pulse.sync: Syncing - ",
-              response.data,
-            );
-            if (!response.data || response.data.indexOf("<html") > -1) {
+      this.login()
+        .then(function () {
+          client
+            .get(
+              that.config.baseUrl + that.config.prefix + that.config.syncURI,
+              {
+                headers: {
+                  "User-Agent": ua,
+                  Referer:
+                    that.config.baseUrl +
+                    that.config.prefix +
+                    that.config.summaryURI,
+                },
+              },
+            )
+            .then(function (response) {
+              console.log(
+                new Date().toLocaleString() + " Pulse.sync: Syncing - ",
+                response.data,
+              );
+              if (!response.data || response.data.indexOf("<html") > -1) {
+                that.authenticated = false;
+                console.log(
+                  "\x1b[31m%s\x1b[0m",
+                  new Date().toLocaleString() + " Pulse.sync: Sync Failed",
+                );
+              } else if (
+                lastsynckey !== response.data ||
+                "1-0-0" === response.data
+              ) {
+                lastsynckey = response.data;
+                that.updateAll.call(that);
+              }
+            })
+            .catch(function () {
               that.authenticated = false;
               console.log(
                 "\x1b[31m%s\x1b[0m",
                 new Date().toLocaleString() + " Pulse.sync: Sync Failed",
               );
-            } else if (
-              lastsynckey !== response.data ||
-              "1-0-0" === response.data
-            ) {
-              lastsynckey = response.data;
-              that.updateAll.call(that);
-            }
-          })
-          .catch(function () {
-            that.authenticated = false;
-            console.log(
-              "\x1b[31m%s\x1b[0m",
-              new Date().toLocaleString() + " Pulse.sync: Sync Failed",
-            );
-          });
-      }).catch(function () {
-        // Login failed or in backoff — handled by login(), nothing to do here
-      });
+            });
+        })
+        .catch(function () {
+          // Login failed or in backoff — handled by login(), nothing to do here
+        });
     } else {
       console.log(
         "\x1b[33m%s\x1b[0m",

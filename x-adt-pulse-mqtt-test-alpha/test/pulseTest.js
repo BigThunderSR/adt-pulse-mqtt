@@ -1217,6 +1217,7 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     assert.strictEqual(testAlarm.authFailures, 0);
     assert.strictEqual(testAlarm.authBackoffUntil, 0);
     assert.strictEqual(testAlarm.maxAuthFailures, 5);
+    assert.strictEqual(testAlarm.networkFailures, 0);
   });
 
   it("Should increment auth failures and set backoff on error", function (done) {
@@ -1225,17 +1226,99 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
+    // An HTTP error response (has e.response) is a non-transient failure and
+    // counts toward the FATAL auth guard.
+    nock("https://portal.adtpulse.com").get("/").reply(401, "Unauthorized");
+
+    testAlarm.login().catch(() => {
+      assert.strictEqual(testAlarm.authFailures, 1);
+      assert.ok(testAlarm.authBackoffUntil > Date.now());
+      done();
+    });
+  });
+
+  it("Should treat network errors as transient (not counted toward FATAL)", function (done) {
+    this.timeout(5000);
+    nock.cleanAll();
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    // A network-layer error (no HTTP response) must NOT increment authFailures.
     nock("https://portal.adtpulse.com")
       .get("/")
-      .replyWithError("Auth error");
+      .replyWithError("getaddrinfo EAI_AGAIN portal.adtpulse.com");
 
-    testAlarm
-      .login()
-      .catch(() => {
-        assert.strictEqual(testAlarm.authFailures, 1);
-        assert.ok(testAlarm.authBackoffUntil > Date.now());
+    testAlarm.login().catch(() => {
+      assert.strictEqual(testAlarm.authFailures, 0);
+      assert.strictEqual(testAlarm.networkFailures, 1);
+      assert.ok(testAlarm.authBackoffUntil > Date.now());
+      done();
+    });
+  });
+
+  it("Should never reach FATAL on repeated network errors", function (done) {
+    this.timeout(5000);
+    nock.cleanAll();
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    nock("https://portal.adtpulse.com")
+      .get("/")
+      .times(10)
+      .replyWithError("timeout of 30000ms exceeded");
+
+    function attempt(n) {
+      // Clear the backoff so the next login() actually runs
+      testAlarm.authBackoffUntil = 0;
+      testAlarm.login().catch(() => {
+        if (n > 1) {
+          return attempt(n - 1);
+        }
+        assert.strictEqual(testAlarm.authFailures, 0);
+        assert.ok(testAlarm.networkFailures >= 6);
+        assert.ok(testAlarm.networkFailures < testAlarm.maxAuthFailures + 100);
         done();
       });
+    }
+    attempt(6);
+  });
+
+  it("Should emit connection-state backoff on network error", function (done) {
+    this.timeout(5000);
+    nock.cleanAll();
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+
+    let fired = false;
+    testAlarm.onConnectionState(function (state, detail) {
+      if (state === "backoff" && !fired) {
+        fired = true;
+        assert.strictEqual(detail.network, true);
+        done();
+      }
+    });
+
+    nock("https://portal.adtpulse.com").get("/").replyWithError("ECONNREFUSED");
+
+    testAlarm.login().catch(() => {});
+  });
+
+  it("Should emit connection-state fatal at max auth failures", function (done) {
+    this.timeout(5000);
+    nock.cleanAll();
+    const testAlarm = new pulse("test", "password", "123456789");
+    clearInterval(testAlarm.pulseInterval);
+    testAlarm.authFailures = testAlarm.maxAuthFailures;
+
+    let fired = false;
+    testAlarm.onConnectionState(function (state) {
+      if (state === "fatal" && !fired) {
+        fired = true;
+        done();
+      }
+    });
+
+    testAlarm.login().catch(() => {});
   });
 
   it("Should reject login when backoff is active", function (done) {
@@ -1243,12 +1326,10 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     clearInterval(testAlarm.pulseInterval);
     testAlarm.authBackoffUntil = Date.now() + 60000;
 
-    testAlarm
-      .login()
-      .catch((error) => {
-        assert.ok(error.message.includes("backoff active"));
-        done();
-      });
+    testAlarm.login().catch((error) => {
+      assert.ok(error.message.includes("backoff active"));
+      done();
+    });
   });
 
   it("Should reset backoff counter on successful auth", function () {
@@ -1274,13 +1355,11 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     const originalKill = process.kill;
     process.kill = function () {};
 
-    testAlarm
-      .login()
-      .catch((error) => {
-        assert.ok(error.message.includes("max failures reached"));
-        process.kill = originalKill;
-        done();
-      });
+    testAlarm.login().catch((error) => {
+      assert.ok(error.message.includes("max failures reached"));
+      process.kill = originalKill;
+      done();
+    });
   });
 
   it("Should calculate exponential backoff correctly", function (done) {
@@ -1289,20 +1368,16 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
 
-    nock("https://portal.adtpulse.com")
-      .get("/")
-      .replyWithError("Auth error");
+    nock("https://portal.adtpulse.com").get("/").replyWithError("Auth error");
 
-    testAlarm
-      .login()
-      .catch(() => {
-        // First failure: 30s backoff
-        var expectedBackoff = 30000;
-        var actualBackoff = testAlarm.authBackoffUntil - Date.now();
-        assert.ok(actualBackoff > expectedBackoff - 1000);
-        assert.ok(actualBackoff <= expectedBackoff);
-        done();
-      });
+    testAlarm.login().catch(() => {
+      // First failure: 30s backoff
+      var expectedBackoff = 30000;
+      var actualBackoff = testAlarm.authBackoffUntil - Date.now();
+      assert.ok(actualBackoff > expectedBackoff - 1000);
+      assert.ok(actualBackoff <= expectedBackoff);
+      done();
+    });
   });
 
   it("Should handle auth failure from invalid redirect", function (done) {
@@ -1330,24 +1405,18 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
     nock("https://portal.adtpulse.com")
       .get("/myhome/30.0.0-61/access/signin.jsp")
       .reply(function () {
-        return [
-          200,
-          "<html>SignIn</html>",
-          { "content-type": "text/html" },
-        ];
+        return [200, "<html>SignIn</html>", { "content-type": "text/html" }];
       });
 
-    testAlarm
-      .login()
-      .catch((error) => {
-        assert.ok(
-          error.message.includes("Authentication failed") ||
-            error.message.includes("Authentication error") ||
-            error.message.includes("error"),
-        );
-        assert.strictEqual(testAlarm.authenticated, false);
-        done();
-      });
+    testAlarm.login().catch((error) => {
+      assert.ok(
+        error.message.includes("Authentication failed") ||
+          error.message.includes("Authentication error") ||
+          error.message.includes("error"),
+      );
+      assert.strictEqual(testAlarm.authenticated, false);
+      done();
+    });
   });
 
   it("Should handle getZoneStatusOrb with malformed response", function (done) {
@@ -1970,7 +2039,11 @@ describe("ADT Pulse deviceStateChange Tests", function () {
       )
       .reply(200, "Success");
 
-    const device = { serialnumber: "SERIAL001", state: 1, name: "Kitchen Light" };
+    const device = {
+      serialnumber: "SERIAL001",
+      state: 1,
+      name: "Kitchen Light",
+    };
     return testAlarm.deviceStateChange(device).then(() => {
       assert.ok(scope.isDone());
     });
@@ -1988,7 +2061,11 @@ describe("ADT Pulse deviceStateChange Tests", function () {
       )
       .reply(200, "Success");
 
-    const device = { serialnumber: "SERIAL002", state: 0, name: "Garage Light" };
+    const device = {
+      serialnumber: "SERIAL002",
+      state: 0,
+      name: "Garage Light",
+    };
     return testAlarm.deviceStateChange(device).then(() => {
       assert.ok(scope.isDone());
     });
@@ -2003,10 +2080,18 @@ describe("ADT Pulse deviceStateChange Tests", function () {
       .post(/.*ChangeVariableServ.*/)
       .replyWithError("Connection refused");
 
-    const device = { serialnumber: "SERIAL001", state: 1, name: "Kitchen Light" };
+    const device = {
+      serialnumber: "SERIAL001",
+      state: 1,
+      name: "Kitchen Light",
+    };
     return testAlarm.deviceStateChange(device).then(
-      () => { assert.fail("Should have rejected"); },
-      (err) => { assert.ok(err.message.includes("Device state change failed")); },
+      () => {
+        assert.fail("Should have rejected");
+      },
+      (err) => {
+        assert.ok(err.message.includes("Device state change failed"));
+      },
     );
   });
 });
@@ -2113,8 +2198,12 @@ describe("ADT Pulse getZoneStatusOrb Parsing Tests", function () {
       .replyWithError("ECONNRESET");
 
     return testAlarm.getZoneStatusOrb().then(
-      () => { assert.fail("Should have rejected"); },
-      (err) => { assert.ok(err.message.includes("ECONNRESET")); },
+      () => {
+        assert.fail("Should have rejected");
+      },
+      (err) => {
+        assert.ok(err.message.includes("ECONNRESET"));
+      },
     );
   });
 });
@@ -2172,23 +2261,31 @@ describe("ADT Pulse setAlarmState Stale Session Tests", function () {
     // First attempt returns stale session page
     nock("https://portal.adtpulse.com")
       .get(/.*armDisarm.*armstate=disarmed&arm=stay&sat=old-sat.*/)
-      .reply(200, "<html>Unable to Proceed. You do not have access to the requested page.</html>");
+      .reply(
+        200,
+        "<html>Unable to Proceed. You do not have access to the requested page.</html>",
+      );
 
     // Re-auth: login flow
     nock("https://portal.adtpulse.com")
       .get("/")
       .reply(302, "", {
-        Location: "https://portal.adtpulse.com/myhome/22.0.0-233/access/signin.jsp",
+        Location:
+          "https://portal.adtpulse.com/myhome/22.0.0-233/access/signin.jsp",
       })
       .get("/myhome/22.0.0-233/access/signin.jsp")
-      .reply(200, '<html><form></form></html>')
+      .reply(200, "<html><form></form></html>")
       .post("/myhome/22.0.0-233/access/signin.jsp")
       .query(true)
       .reply(301, "", {
-        Location: "https://portal.adtpulse.com/myhome/22.0.0-233/summary/summary.jsp",
+        Location:
+          "https://portal.adtpulse.com/myhome/22.0.0-233/summary/summary.jsp",
       })
       .get("/myhome/22.0.0-233/summary/summary.jsp")
-      .reply(200, '<html><div id="divOrbTextSummary"><span>Disarmed</span></div></html>');
+      .reply(
+        200,
+        '<html><div id="divOrbTextSummary"><span>Disarmed</span></div></html>',
+      );
 
     // getZoneStatusOrb to get fresh SAT
     const orbWithSat = `<html><div id="orbSensorsList"><table>
@@ -2205,7 +2302,11 @@ describe("ADT Pulse setAlarmState Stale Session Tests", function () {
       .get(/.*armDisarm.*armstate=disarmed&arm=stay&sat=aabbccdd.*/)
       .reply(200, "Arming Stay");
 
-    const action = { newstate: "stay", prev_state: "disarmed", isForced: false };
+    const action = {
+      newstate: "stay",
+      prev_state: "disarmed",
+      isForced: false,
+    };
     return testAlarm.setAlarmState(action).then((result) => {
       assert.ok(result.includes("Arming"));
     });
@@ -2221,12 +2322,24 @@ describe("ADT Pulse setAlarmState Stale Session Tests", function () {
     // First attempt returns stale session - isRetry already set
     nock("https://portal.adtpulse.com")
       .get(/.*armDisarm.*/)
-      .reply(200, "<html>You do not have access to the requested page. signin.jsp</html>");
+      .reply(
+        200,
+        "<html>You do not have access to the requested page. signin.jsp</html>",
+      );
 
-    const action = { newstate: "stay", prev_state: "disarmed", isForced: false, isRetry: true };
+    const action = {
+      newstate: "stay",
+      prev_state: "disarmed",
+      isForced: false,
+      isRetry: true,
+    };
     return testAlarm.setAlarmState(action).then(
-      () => { assert.fail("Should have rejected"); },
-      (err) => { assert.ok(err.message.includes("session expired")); },
+      () => {
+        assert.fail("Should have rejected");
+      },
+      (err) => {
+        assert.ok(err.message.includes("session expired"));
+      },
     );
   });
 });
@@ -2380,7 +2493,11 @@ describe("ADT Pulse setAlarmState Branch Coverage Tests", function () {
       .query(true)
       .reply(200, "Arming Stay");
 
-    const action = { newstate: "stay", prev_state: "disarmed", isForced: false };
+    const action = {
+      newstate: "stay",
+      prev_state: "disarmed",
+      isForced: false,
+    };
     return testAlarm.setAlarmState(action).then((result) => {
       assert.ok(result.includes("Arming"));
     });
@@ -2391,7 +2508,10 @@ describe("ADT Pulse setAlarmState Branch Coverage Tests", function () {
 
     nock("https://portal.adtpulse.com")
       .get("/myhome/13.0.0-153/quickcontrol/armDisarm.jsp")
-      .query((q) => q.arm === "off" && q.sat === "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+      .query(
+        (q) =>
+          q.arm === "off" && q.sat === "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      )
       .reply(200, "Disarming");
 
     const action = { newstate: "disarm", prev_state: "stay", isForced: false };
@@ -2408,7 +2528,11 @@ describe("ADT Pulse setAlarmState Branch Coverage Tests", function () {
       .query((q) => q.arm === "off" && !q.sat)
       .reply(200, "Disarming");
 
-    const action = { newstate: "disarm", prev_state: "disarmed", isForced: false };
+    const action = {
+      newstate: "disarm",
+      prev_state: "disarmed",
+      isForced: false,
+    };
     return testAlarm.setAlarmState(action).then((result) => {
       assert.ok(result.includes("Disarming"));
     });
@@ -2428,10 +2552,18 @@ describe("ADT Pulse setAlarmState Branch Coverage Tests", function () {
       .get("/")
       .replyWithError("DNS resolution failed");
 
-    const action = { newstate: "stay", prev_state: "disarmed", isForced: false };
+    const action = {
+      newstate: "stay",
+      prev_state: "disarmed",
+      isForced: false,
+    };
     return testAlarm.setAlarmState(action).then(
-      () => { assert.fail("Should have rejected"); },
-      (err) => { assert.ok(err.message.includes("DNS") || err.message.includes("error")); },
+      () => {
+        assert.fail("Should have rejected");
+      },
+      (err) => {
+        assert.ok(err.message.includes("DNS") || err.message.includes("error"));
+      },
     );
   });
 });
@@ -2451,16 +2583,28 @@ describe("ADT Pulse updateAll Integration Tests", function () {
     let deviceCalled = false;
     let zoneCalled = false;
 
-    testAlarm.onStatusUpdate(function () { statusCalled = true; });
-    testAlarm.onDeviceUpdate(function () { deviceCalled = true; });
-    testAlarm.onZoneUpdate(function () { zoneCalled = true; });
+    testAlarm.onStatusUpdate(function () {
+      statusCalled = true;
+    });
+    testAlarm.onDeviceUpdate(function () {
+      deviceCalled = true;
+    });
+    testAlarm.onZoneUpdate(function () {
+      zoneCalled = true;
+    });
 
     // Mock all three endpoints
     nock("https://portal.adtpulse.com")
       .get("/myhome/13.0.0-153/summary/summary.jsp")
-      .reply(200, '<html><div id="divOrbTextSummary"><span>Disarmed</span></div></html>')
+      .reply(
+        200,
+        '<html><div id="divOrbTextSummary"><span>Disarmed</span></div></html>',
+      )
       .get("/myhome/13.0.0-153/ajax/currentStates.jsp")
-      .reply(200, fs.readFileSync("./test/pages/otherdevices_with_devices.jsp", "utf8"))
+      .reply(
+        200,
+        fs.readFileSync("./test/pages/otherdevices_with_devices.jsp", "utf8"),
+      )
       .get("/myhome/13.0.0-153/ajax/orb.jsp")
       .reply(200, fs.readFileSync("./test/pages/zonestatus.jsp", "utf8"));
 

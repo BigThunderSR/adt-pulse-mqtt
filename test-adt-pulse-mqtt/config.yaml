@@ -1,6 +1,6 @@
 ---
 name: ADT Pulse MQTT - BigThunderSR - Test
-version: 5.3.1
+version: 5.4.0
 slug: adtpulsemqtt_bigthundersr_test
 description: ADT Pulse Bridge using MQTT - Test Version
 #codenotary: bigthundersr@outlook.com
@@ -36,6 +36,7 @@ options:
   ha_discovery: false
   ha_discovery_topic: homeassistant
   availability_topic: adt/availability
+  connection_state_topic: adt/connection
 schema:
   ssl: bool
   certfile: str
@@ -57,3 +58,4 @@ schema:
   ha_discovery: bool
   ha_discovery_topic: str
   availability_topic: str
+  connection_state_topic: str?

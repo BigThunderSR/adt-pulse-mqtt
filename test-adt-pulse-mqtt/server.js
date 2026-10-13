@@ -37,6 +37,8 @@ function loadConfig() {
       ha_discovery: process.env.HA_DISCOVERY_ENABLED === "true",
       ha_discovery_topic: process.env.HA_DISCOVERY_TOPIC || "homeassistant",
       availability_topic: process.env.AVAILABILITY_TOPIC || "adt/availability",
+      connection_state_topic:
+        process.env.CONNECTION_STATE_TOPIC || "adt/connection",
     };
   }
 
@@ -79,6 +81,14 @@ var myAlarm = new Pulse(
 var ha_discovery = config.ha_discovery === true;
 var ha_discovery_topic = config.ha_discovery_topic || "homeassistant";
 var availability_topic = config.availability_topic || "adt/availability";
+var connection_state_topic = config.connection_state_topic || "adt/connection";
+
+// Tracks the last availability value published so transient connection-state
+// transitions don't flap the Home Assistant panel. Set on MQTT connect.
+var availabilityPublished = null;
+// Number of consecutive transient-network backoff events before we mark the
+// panel unavailable (~30s + 60s + 120s ≈ 3.5 min of outage).
+var EXTENDED_BACKOFF_THRESHOLD = 3;
 
 var mqtt_connect_options = Object.assign({}, config.mqtt_connect_options);
 if (ha_discovery && !mqtt_connect_options.will) {
@@ -202,12 +212,76 @@ function publishHaZoneDiscovery(device) {
   );
 }
 
+// Diagnostic sensor exposing the add-on's connection state
+// (connected | backoff | fatal) and the last error message. Intentionally has
+// NO availability_topic so it stays visible even when the panel is marked
+// unavailable - otherwise a "fatal" state would be hidden from the user.
+function publishHaConnectionDiscovery() {
+  var ha_connection_config_topic =
+    ha_discovery_topic + "/sensor/adt_pulse/connection/config";
+  var payload = {
+    name: "Connection",
+    unique_id: "adt_pulse_connection",
+    state_topic: connection_state_topic,
+    json_attributes_topic: connection_state_topic + "/attributes",
+    icon: "mdi:lan-connect",
+    entity_category: "diagnostic",
+    device: HA_DEVICE_INFO,
+  };
+  client.publish(ha_connection_config_topic, JSON.stringify(payload), {
+    retain: true,
+  });
+  console.log(
+    new Date().toLocaleString() +
+      " HA discovery: published connection sensor config to " +
+      ha_connection_config_topic,
+  );
+}
+
+// Publish the connection diagnostic state and last-error attribute.
+function publishConnectionDiagnostic(state, message) {
+  if (!ha_discovery || !client || !client.connected) {
+    return;
+  }
+  client.publish(connection_state_topic, state, { retain: true });
+  client.publish(
+    connection_state_topic + "/attributes",
+    JSON.stringify({
+      last_error: message || "",
+      updated: new Date().toISOString(),
+    }),
+    { retain: true },
+  );
+}
+
+// Publish availability only on change so transient blips don't flap HA.
+function publishAvailability(value) {
+  if (!ha_discovery || !client || !client.connected) {
+    return;
+  }
+  if (availabilityPublished === value) {
+    return;
+  }
+  client.publish(availability_topic, value, { retain: true });
+  availabilityPublished = value;
+  console.log(
+    new Date().toLocaleString() +
+      " Published " +
+      value +
+      " availability to " +
+      availability_topic,
+  );
+}
+
 client.on("connect", function () {
   console.log("MQTT Sub to: " + alarm_command_topic);
   client.subscribe(alarm_command_topic);
   if (ha_discovery) {
     client.publish(availability_topic, "online", { retain: true });
+    availabilityPublished = "online";
     publishHaAlarmDiscovery();
+    publishHaConnectionDiscovery();
+    publishConnectionDiagnostic("connected", "");
     // Home Assistant publishes a birth message when it (re)starts; use it to
     // re-announce discovery configs and current states
     client.subscribe(ha_discovery_topic + "/status");
@@ -245,6 +319,7 @@ client.on("message", function (topic, message) {
       );
       client.publish(availability_topic, "online", { retain: true });
       publishHaAlarmDiscovery();
+      publishHaConnectionDiscovery();
       if (alarm_last_state != "unknown") {
         client.publish(alarm_state_topic, alarm_last_state, { retain: true });
       }
@@ -346,6 +421,27 @@ client.on("message", function (topic, message) {
 });
 
 // Register Callbacks:
+
+// Reflect ADT connection state in MQTT so Home Assistant can see when the
+// add-on is in an extended network backoff or has hit the FATAL auth guard.
+// Without this the panel would keep reporting "online" while commands fail.
+myAlarm.onConnectionState(function (state, detail) {
+  detail = detail || {};
+  publishConnectionDiagnostic(state, detail.message);
+
+  if (state === "connected") {
+    publishAvailability("online");
+  } else if (state === "fatal") {
+    publishAvailability("offline");
+  } else if (state === "backoff") {
+    // Only mark the panel unavailable once an outage is sustained, so a brief
+    // network blip doesn't flap entities to unavailable and back.
+    if ((detail.attempt || 0) >= EXTENDED_BACKOFF_THRESHOLD) {
+      publishAvailability("offline");
+    }
+  }
+});
+
 myAlarm.onDeviceUpdate(function (device) {
   console.log("Device callback" + JSON.stringify(device));
 });
