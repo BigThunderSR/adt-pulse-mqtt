@@ -23,5 +23,6 @@
   "smartthings": false,
   "ha_discovery": true,
   "ha_discovery_topic": "homeassistant",
-  "availability_topic": "adt/availability"
+  "availability_topic": "adt/availability",
+  "connection_state_topic": "adt/connection"
 }

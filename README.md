@@ -86,14 +86,16 @@ This add-on supports [Home Assistant MQTT discovery](https://www.home-assistant.
 
 - An **alarm control panel** entity supporting arm home / arm away / arm night / disarm (with `pending` and `triggered` states). Arm night requires a panel that supports night arming — if yours doesn't, the ADT portal rejects the command and the alarm state is unchanged
 - A **binary sensor** entity per zone, with the device class inferred from the sensor type (door, window, motion, sound, gas, smoke)
+- A **Connection** diagnostic sensor reporting the add-on's link to ADT (`connected`, `backoff`, or `fatal`) with the last error message as an attribute
 
-Entities automatically show as **unavailable** if the add-on stops or crashes (via an MQTT Last Will and Testament message), and are re-announced whenever Home Assistant restarts.
+Entities automatically show as **unavailable** if the add-on stops or crashes (via an MQTT Last Will and Testament message), and are re-announced whenever Home Assistant restarts. They also show **unavailable** during an extended network outage or after repeated authentication failures, so a silently failing add-on is visible rather than appearing healthy. Transient network problems (timeouts, DNS failures) are retried indefinitely and never count toward the authentication-failure limit, so an ISP outage no longer requires a manual restart.
 
 The related add-on options (defaults shown):
 
 - `ha_discovery`: `false` — set to `true` to enable auto-discovery
 - `ha_discovery_topic`: `homeassistant` — must match the `discovery_prefix` configured in Home Assistant's MQTT integration
 - `availability_topic`: `adt/availability` — topic used for online/offline availability
+- `connection_state_topic`: `adt/connection` — topic for the Connection diagnostic sensor state and attributes
 
 > **Note:** If you previously configured the alarm panel or zone binary sensors manually in `configuration.yaml` (as described below), remove those entries or set `ha_discovery: false`, otherwise you will get duplicate entities.
 
