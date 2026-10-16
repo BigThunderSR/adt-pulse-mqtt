@@ -125,6 +125,8 @@ jobs:
             latest
           push: ${{ inputs.publish }}
           version: ${{ needs.prepare.outputs.version }}
+          # Guard production addon only; test addons (name contains "test") may rebuild over the same version
+          skip-existing: ${{ !contains(inputs.addon, 'test') && needs.prepare.outputs.version || '' }}
           #--no-cache: use cache-gha: "false" to disable caching
         #env:
         #  CAS_API_KEY: ${{ secrets.CAS_API_KEY }}
