@@ -945,6 +945,7 @@ describe("ADT Pulse Enhanced Coverage Tests", function () {
   it("Should handle getAlarmStatus timeout scenarios", function (done) {
     const testAlarm = new pulse("test", "password", "123456789");
     clearInterval(testAlarm.pulseInterval);
+    nock.cleanAll();
 
     // Mock response that indicates not signed in (timeout scenario)
     nock("https://portal.adtpulse.com")
