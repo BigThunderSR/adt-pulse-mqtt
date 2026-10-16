@@ -1,5 +1,16 @@
 # Changelog
 
+## 5.4.2 - SmartThings Stale Status Fix (2026-10-15)
+
+### 🐛 Fixes
+
+- SmartThings sensor statuses no longer stay stale after an HA host reboot.
+  SmartThings state topics are now retained so the MQTT Discovery driver
+  receives current statuses whenever it reconnects, and they are cleared on
+  shutdown and startup cleanup
+
+---
+
 ## 5.4.1 - Connection Sensor Availability Fix (2026-10-15)
 
 ### 🐛 Fixes

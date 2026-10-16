@@ -311,7 +311,7 @@ client.on("connect", function () {
     // our own retained topics are still valid).
     if (!startupCleanupDone) {
       staleConfigTopics.clear();
-      var configWildcard = smartthings_topic + "/+/+/+/config";
+      var configWildcard = smartthings_topic + "/+/+/+/+";
       client.subscribe(configWildcard);
       console.log(
         new Date().toLocaleString() +
@@ -356,7 +356,7 @@ client.on("message", function (topic, message) {
   if (
     smartthings &&
     !startupCleanupDone &&
-    topic.endsWith("/config") &&
+    (topic.endsWith("/config") || topic.endsWith("/state")) &&
     topic.startsWith(smartthings_topic + "/")
   ) {
     if (message.toString().length > 0) {
@@ -552,7 +552,7 @@ myAlarm.onZoneUpdate(function (device) {
       );
     }
     // Unsubscribe from the cleanup wildcard
-    var configWildcard = smartthings_topic + "/+/+/+/config";
+    var configWildcard = smartthings_topic + "/+/+/+/+";
     client.unsubscribe(configWildcard);
     staleConfigTopics.clear();
     console.log(
@@ -630,8 +630,10 @@ myAlarm.onZoneUpdate(function (device) {
         "/" +
         trackedDeviceId +
         "/state";
+      // Retained so the ST driver gets current state when it (re)subscribes,
+      // e.g. after a broker restart during an HA host reboot.
       client.publish(sm_dev_zone_state_topic, sm_device_state, {
-        retain: false,
+        retain: true,
       });
       console.log(
         new Date().toLocaleString() +
@@ -712,6 +714,19 @@ async function gracefulShutdown(signal) {
           new Date().toLocaleString() +
             " Cleared SmartThings config: " +
             sm_dev_zone_config_topic,
+        );
+        var sm_dev_zone_state_topic =
+          smartthings_topic +
+          "/" +
+          sm_device_type +
+          "/" +
+          trackedDeviceId +
+          "/state";
+        client.publish(sm_dev_zone_state_topic, "", { retain: true });
+        console.log(
+          new Date().toLocaleString() +
+            " Cleared SmartThings state: " +
+            sm_dev_zone_state_topic,
         );
       }
       // Brief delay to let the empty config messages flush
