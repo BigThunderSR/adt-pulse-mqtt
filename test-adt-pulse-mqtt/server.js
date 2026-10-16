@@ -82,6 +82,10 @@ var ha_discovery = config.ha_discovery === true;
 var ha_discovery_topic = config.ha_discovery_topic || "homeassistant";
 var availability_topic = config.availability_topic || "adt/availability";
 var connection_state_topic = config.connection_state_topic || "adt/connection";
+// Bridge-liveness topic: reflects whether the add-on process itself is running
+// (online on connect, offline via Last Will on crash or on graceful shutdown).
+// Distinct from availability_topic, which reflects ADT connection health.
+var bridge_availability_topic = connection_state_topic + "/availability";
 
 // Tracks the last availability value published so transient connection-state
 // transitions don't flap the Home Assistant panel. Set on MQTT connect.
@@ -94,7 +98,7 @@ var mqtt_connect_options = Object.assign({}, config.mqtt_connect_options);
 if (ha_discovery && !mqtt_connect_options.will) {
   // Last-will so Home Assistant marks entities unavailable if we die uncleanly
   mqtt_connect_options.will = {
-    topic: availability_topic,
+    topic: bridge_availability_topic,
     payload: "offline",
     retain: true,
   };
@@ -168,7 +172,13 @@ function publishHaAlarmDiscovery() {
     code_arm_required: false,
     code_disarm_required: false,
     code_trigger_required: false,
-    availability_topic: availability_topic,
+    // Unavailable if ADT is unhealthy (availability_topic) OR the add-on is not
+    // running (bridge topic); availability_mode "all" requires both online.
+    availability: [
+      { topic: availability_topic },
+      { topic: bridge_availability_topic },
+    ],
+    availability_mode: "all",
     device: HA_DEVICE_INFO,
   };
   client.publish(ha_alarm_config_topic, JSON.stringify(payload), {
@@ -195,7 +205,11 @@ function publishHaZoneDiscovery(device) {
       "{% if value == 'devStatOK' %}OFF" +
       "{% elif value == 'devStatUnknown' %}None" +
       "{% else %}ON{% endif %}",
-    availability_topic: availability_topic,
+    availability: [
+      { topic: availability_topic },
+      { topic: bridge_availability_topic },
+    ],
+    availability_mode: "all",
     device: HA_DEVICE_INFO,
   };
   var device_class = haZoneDeviceClass(device);
@@ -213,9 +227,9 @@ function publishHaZoneDiscovery(device) {
 }
 
 // Diagnostic sensor exposing the add-on's connection state
-// (connected | backoff | fatal) and the last error message. Intentionally has
-// NO availability_topic so it stays visible even when the panel is marked
-// unavailable - otherwise a "fatal" state would be hidden from the user.
+// (connected | backoff | fatal) and the last error message. Tied only to the
+// bridge-liveness topic, so it stays visible (showing backoff/fatal) while the
+// add-on runs, and reports unavailable - not a stale "connected" - when stopped.
 function publishHaConnectionDiscovery() {
   var ha_connection_config_topic =
     ha_discovery_topic + "/sensor/adt_pulse/connection/config";
@@ -226,6 +240,7 @@ function publishHaConnectionDiscovery() {
     json_attributes_topic: connection_state_topic + "/attributes",
     icon: "mdi:lan-connect",
     entity_category: "diagnostic",
+    availability_topic: bridge_availability_topic,
     device: HA_DEVICE_INFO,
   };
   client.publish(ha_connection_config_topic, JSON.stringify(payload), {
@@ -277,6 +292,7 @@ client.on("connect", function () {
   console.log("MQTT Sub to: " + alarm_command_topic);
   client.subscribe(alarm_command_topic);
   if (ha_discovery) {
+    client.publish(bridge_availability_topic, "online", { retain: true });
     client.publish(availability_topic, "online", { retain: true });
     availabilityPublished = "online";
     publishHaAlarmDiscovery();
@@ -317,6 +333,7 @@ client.on("message", function (topic, message) {
         new Date().toLocaleString() +
           " HA discovery: Home Assistant is online, re-announcing devices",
       );
+      client.publish(bridge_availability_topic, "online", { retain: true });
       client.publish(availability_topic, "online", { retain: true });
       publishHaAlarmDiscovery();
       publishHaConnectionDiscovery();
@@ -708,6 +725,7 @@ async function gracefulShutdown(signal) {
   // intentionally left retained so entities survive addon restarts.
   try {
     if (ha_discovery && client && client.connected) {
+      client.publish(bridge_availability_topic, "offline", { retain: true });
       client.publish(availability_topic, "offline", { retain: true });
       console.log(
         new Date().toLocaleString() +
