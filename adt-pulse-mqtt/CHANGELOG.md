@@ -1,5 +1,16 @@
 # Changelog
 
+## 5.4.1 - Connection Sensor Availability Fix (2026-10-15)
+
+### 🐛 Fixes
+
+- The Connection diagnostic sensor and the alarm panel/zones now correctly
+  report **unavailable** when the add-on is stopped or crashes, instead of the
+  sensor staying stuck on `connected`. A bridge-liveness topic
+  (`adt/connection/availability`) now backs Home Assistant availability (#662)
+
+---
+
 ## 5.4.0 - Network Outage Resilience (2026-10-12)
 
 ### ✨ Features
